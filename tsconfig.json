@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "target": "es2019",
+        "moduleResolution": "node",
+        "module": "ESNext",
+        "allowJs": true,
+        "outDir": "./out",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "sourceMap": true,
+        "lib": ["ESNext", "dom"],
+        "declaration": true
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["**/__bench__", "**/__tests__"]
+}
