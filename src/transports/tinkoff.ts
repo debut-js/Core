@@ -2,9 +2,8 @@ import OpenAPI, { MoneyAmount } from '@tinkoff/invest-openapi-js-sdk';
 import { logDebug } from '../utils/debug';
 import { sleep } from '../utils/promise';
 import { clamp } from '../utils/math';
-import { readFile } from '../utils/file';
 import { syntheticOrderId } from '../utils/orders';
-import { getArgs } from '../utils/cli';
+import { getArgs, getTokens } from '../utils/cli';
 import { convertTimeFrame } from '../cli/tester/history-providers/tinkoff';
 import { BaseTransport, Instrument } from '../types/transport';
 import { TickHandler, TimeFrame } from '../types/common';
@@ -19,7 +18,7 @@ export class TinkoffTransport implements BaseTransport {
 
     constructor() {
         let { token, proxyPort } = getArgs<TinkoffTransportArgs>();
-        const tokens: Record<string, string> = JSON.parse(readFile(`${process.cwd()}/.tokens.json`));
+        const tokens = getTokens();
 
         proxyPort = proxyPort && Number(proxyPort);
         token = tokens[token];

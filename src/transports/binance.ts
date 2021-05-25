@@ -7,11 +7,10 @@ import Binance, {
     SymbolLotSizeFilter,
 } from 'binance-api-node';
 import { sleep } from '../utils/promise';
-import { readFile } from '../utils/file';
 import { getMinIncrementValue, syntheticOrderId } from '../utils/orders';
 import { logDebug } from '../utils/debug';
 import { clamp, toFixed, getPrecision } from '../utils/math';
-import { getArgs } from '../utils/cli';
+import { getArgs, getTokens } from '../utils/cli';
 import { Instrument } from '..';
 import { BaseTransport } from '../types/transport';
 import { TickHandler, TimeFrame } from '../types/common';
@@ -55,7 +54,7 @@ export class BinanceTransport implements BaseTransport {
     protected info: ExchangeInfo;
 
     constructor() {
-        const tokens: Record<string, string> = JSON.parse(readFile(`${process.cwd()}/.tokens.json`));
+        const tokens = getTokens();
         let { btoken, bsecret } = getArgs<BinanceTransportArgs>();
 
         btoken = tokens[btoken];

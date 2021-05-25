@@ -93,3 +93,7 @@ export function getArgs<T>(): T {
 
     return args as T;
 }
+
+export function getTokens(): Record<string, string> {
+    return JSON.parse(readFile(`${process.cwd()}/.tokens.json`));
+}

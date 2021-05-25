@@ -4,8 +4,9 @@ import { TimeFrame } from '../../../types/common';
 import { isSameDay, isWeekend, toIsoString } from '../../../utils/date';
 import { ensureFile, readFile, saveFile } from '../../../utils/file';
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
+import { getTokens } from '../../../utils/cli';
 
-const tokens = JSON.parse(readFile(`${process.cwd()}/.tokens.json`));
+const tokens = getTokens();
 const token: string = tokens['tinkoff'];
 const apiURL = 'https://api-invest.tinkoff.ru/openapi';
 const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
