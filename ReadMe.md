@@ -51,6 +51,7 @@ npm install --save debutjs
 | Отчеты о работе в мессенджер | ❌ | ✅ |
 | Готовые решения для запуска на VPS/VDS и Cloud серверах | ❌ | ✅ |
 | Техническая поддержка | ❌ | ✅ |
+| Не ограниченое кол-во подключений TCP на Тинькофф API ([о лимитах](https://tinkoffcreditsystems.github.io/invest-openapi/marketdata/)) | ❌ | ✅ |
 
 ## Узнайте цену, отправив запрос на [sales@debutjs.io](mailto:sales@debutjs.io)
 
