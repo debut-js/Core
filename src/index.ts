@@ -8,3 +8,4 @@ export * from './types/order';
 export * from './types/plugin';
 export * from './types/transport';
 export * from './types/genetic';
+export * from './types/debut';
