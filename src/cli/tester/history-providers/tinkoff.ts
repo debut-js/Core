@@ -1,11 +1,11 @@
-import OpenAPI, { CandleResolution } from '@tinkoff/invest-openapi-js-sdk';
+import OpenAPI from '@tinkoff/invest-openapi-js-sdk';
 import { Candle } from '../../../types/candle';
 import { TimeFrame } from '../../../types/common';
 import { isSameDay, isWeekend, toIsoString } from '../../../utils/date';
 import { ensureFile, readFile, saveFile } from '../../../utils/file';
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
 import { getTokens } from '../../../utils/cli';
-import { transformTinkoffCandle } from '../../../transports/tinkoff';
+import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 
 const tokens = getTokens();
 const token: string = tokens['tinkoff'];
@@ -138,23 +138,4 @@ async function requestDay(
     }
 
     return result;
-}
-
-export function convertTimeFrame(interval: TimeFrame): CandleResolution {
-    switch (interval) {
-        case '1min':
-            return '1min';
-        case '5min':
-            return '5min';
-        case '15min':
-            return '15min';
-        case '30min':
-            return '30min';
-        case '1h':
-            return 'hour';
-        case 'day':
-            return 'day';
-    }
-
-    throw new Error('Unsupported interval');
 }

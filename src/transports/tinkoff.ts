@@ -1,10 +1,14 @@
-import OpenAPI, { MoneyAmount, Candle as TinkoffCandle, CandleStreaming } from '@tinkoff/invest-openapi-js-sdk';
+import OpenAPI, {
+    MoneyAmount,
+    Candle as TinkoffCandle,
+    CandleStreaming,
+    CandleResolution,
+} from '@tinkoff/invest-openapi-js-sdk';
 import { logDebug } from '../utils/debug';
 import { sleep } from '../utils/promise';
 import { clamp } from '../utils/math';
 import { syntheticOrderId } from '../utils/orders';
 import { getArgs, getTokens } from '../utils/cli';
-import { convertTimeFrame } from '../cli/tester/history-providers/tinkoff';
 import { BaseTransport, Instrument } from '../types/transport';
 import { TickHandler, TimeFrame } from '../types/common';
 import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
@@ -16,6 +20,25 @@ type TinkoffTransportArgs = { token: string; proxyPort: number | string };
 
 export function transformTinkoffCandle(candle: TinkoffCandle | CandleStreaming): Candle {
     return { o: candle.o, h: candle.h, l: candle.l, c: candle.c, time: Date.parse(candle.time), v: candle.v };
+}
+
+export function convertTimeFrame(interval: TimeFrame): CandleResolution {
+    switch (interval) {
+        case '1min':
+            return '1min';
+        case '5min':
+            return '5min';
+        case '15min':
+            return '15min';
+        case '30min':
+            return '30min';
+        case '1h':
+            return 'hour';
+        case 'day':
+            return 'day';
+    }
+
+    throw new Error('Unsupported interval');
 }
 export class TinkoffTransport implements BaseTransport {
     protected api: OpenAPI;
