@@ -9,7 +9,7 @@ const tsConfig = {
 };
 
 const debut = {
-    input: 'src/modules/debut.ts',
+    input: 'src/index.ts',
     output: {
         file: pkg.main,
         format: 'cjs', // the preferred format
