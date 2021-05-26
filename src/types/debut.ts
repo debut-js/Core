@@ -5,7 +5,7 @@ import { TimeFrame, WorkingEnv } from './common';
 import { PluginInterface } from './plugin';
 import { BaseTransport } from './transport';
 
-export interface debutOptions {
+export interface DebutOptions {
     broker: 'tinkoff' | 'binance'; // Тип брокера
     ticker: string; // Тикер
     currency: string; // Валюта
@@ -17,15 +17,16 @@ export interface debutOptions {
     margin?: boolean; // Разрешена ли торговля в шорт
     lotsMultiplier?: number; // Множитель лотности, например если нужно сделать х2 или х3 закупку, по умолчанию 1
     equityLevel?: number; // Склько доступно от общего депозита для текущей стратегии
+    brokerUTCoffset?: number; // временная зона брокера (binance UTC-0, moex UTC+3, NYSE UTC-5)
 }
 
-export interface debutMeta {
+export interface DebutMeta {
     parameters: GeneticSchema;
     score: (bot: Debut) => number;
-    validate: (cfg: debutOptions) => false | debutOptions;
+    validate: (cfg: DebutOptions) => false | DebutOptions;
     stats: (bot: Debut) => unknown;
-    create: (transport: BaseTransport, cfg: debutOptions, env: WorkingEnv) => Promise<Debut>;
-    ticksFilter?: (solution: debutOptions) => (tick: Candle) => boolean;
-    testPlugins?: (cfg: debutOptions) => PluginInterface[];
-    geneticPlugins?: (cfg: debutOptions) => PluginInterface[];
+    create: (transport: BaseTransport, cfg: DebutOptions, env: WorkingEnv) => Promise<Debut>;
+    ticksFilter?: (solution: DebutOptions) => (tick: Candle) => boolean;
+    testPlugins?: (cfg: DebutOptions) => PluginInterface[];
+    geneticPlugins?: (cfg: DebutOptions) => PluginInterface[];
 }

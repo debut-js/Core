@@ -1,7 +1,7 @@
 import { Genetic, GeneticOptions, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
-import { debutOptions } from '../../types/debut';
+import { DebutOptions } from '../../types/debut';
 import { Candle } from '../../types/candle';
 import { WorkingEnv } from '../../types/common';
 import { getRandomArbitrary, getRandomInt } from '../../utils/math';
@@ -12,7 +12,7 @@ import { Debut } from '../../modules/debut';
 export interface GenticWrapperOptions {
     score: (bot: Debut) => number;
     stats: (bot: Debut) => unknown;
-    create: (transport: BaseTransport, solution: debutOptions, environment: WorkingEnv) => Promise<Debut>;
+    create: (transport: BaseTransport, solution: DebutOptions, environment: WorkingEnv) => Promise<Debut>;
     generations: number;
     log?: boolean;
     populationSize?: number;
@@ -20,7 +20,7 @@ export interface GenticWrapperOptions {
     ohlc?: boolean;
     gapDays?: number;
     validateSchema: ConfigValidator;
-    ticksFilter?: (solution: debutOptions) => (tick: Candle) => boolean;
+    ticksFilter?: (solution: DebutOptions) => (tick: Candle) => boolean;
     best?: number;
 }
 
@@ -37,16 +37,16 @@ export type GeneticSchema<T = any> = {
 };
 
 export class GeneticWrapper {
-    private genetic: Genetic<debutOptions>;
+    private genetic: Genetic<DebutOptions>;
     private transport: TesterTransport;
-    private internalOptions: GeneticOptions<debutOptions>;
+    private internalOptions: GeneticOptions<DebutOptions>;
     private schema: GeneticSchema;
     private schemaKeys: string[];
-    private configLookup: Map<debutOptions, unknown> = new Map();
+    private configLookup: Map<DebutOptions, unknown> = new Map();
     private deduplicateLookup = new Set<string>();
     private scoreLookup: Map<string, number> = new Map();
     private lastIteration = false;
-    private baseOpts: debutOptions;
+    private baseOpts: DebutOptions;
 
     constructor(private options: GenticWrapperOptions) {
         this.internalOptions = {
@@ -66,7 +66,7 @@ export class GeneticWrapper {
         this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
     }
 
-    async start(schema: GeneticSchema, opts: debutOptions) {
+    async start(schema: GeneticSchema, opts: DebutOptions) {
         try {
             this.schema = schema;
             this.schemaKeys = Object.keys(schema);
@@ -171,7 +171,7 @@ export class GeneticWrapper {
         return this.getRandomSolution();
     };
 
-    private fitness = async (solution: debutOptions) => {
+    private fitness = async (solution: DebutOptions) => {
         const hash = JSON.stringify(solution, Object.keys(solution).sort());
         const prev = this.scoreLookup.get(hash);
 
@@ -201,7 +201,7 @@ export class GeneticWrapper {
         return result;
     };
 
-    private mutate = (solution: debutOptions) => {
+    private mutate = (solution: DebutOptions) => {
         solution = { ...solution };
 
         this.schemaKeys.forEach((key) => {
@@ -220,10 +220,10 @@ export class GeneticWrapper {
         return this.mutate(solution);
     };
 
-    private crossover = (mother: debutOptions, father: debutOptions, i = 0) => {
+    private crossover = (mother: DebutOptions, father: DebutOptions, i = 0) => {
         // two-point crossover
-        const son: debutOptions = { ...father };
-        const daughter: debutOptions = { ...mother };
+        const son: DebutOptions = { ...father };
+        const daughter: DebutOptions = { ...mother };
 
         this.schemaKeys.forEach((key: string) => {
             const source1 = Math.random() > 0.5 ? mother : father;
@@ -240,7 +240,7 @@ export class GeneticWrapper {
         return this.crossover(mother, father, ++i);
     };
 
-    private deduplicate = (solution: debutOptions) => {
+    private deduplicate = (solution: DebutOptions) => {
         const hash = JSON.stringify(solution, Object.keys(solution).sort());
 
         if (this.deduplicateLookup.has(hash)) {

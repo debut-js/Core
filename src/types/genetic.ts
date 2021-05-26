@@ -1,4 +1,4 @@
-import { debutOptions } from './debut';
+import { DebutOptions } from './debut';
 
 export type GeneticStats = {
     population: number;
@@ -8,4 +8,4 @@ export type GeneticStats = {
     stdev: number;
 };
 
-export type ConfigValidator = (cfg: debutOptions) => debutOptions | false;
+export type ConfigValidator = (cfg: DebutOptions) => DebutOptions | false;

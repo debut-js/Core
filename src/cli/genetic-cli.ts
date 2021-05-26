@@ -1,6 +1,6 @@
 import { GenticWrapperOptions, GeneticWrapper } from './tester/genetic';
 import { getBotData, BotData, getArgs } from '../utils/cli';
-import { debutOptions } from '../types/debut';
+import { DebutOptions } from '../types/debut';
 
 type GeneticParams = {
     bot: string;
@@ -27,7 +27,7 @@ const schema: BotData | null = getBotData(bot);
     }
 
     const { configs, meta } = schema;
-    const config: debutOptions = { ...configs[ticker], ticker, amount: Number(amount) };
+    const config: DebutOptions = { ...configs[ticker], ticker, amount: Number(amount) };
     const options: GenticWrapperOptions = {
         days,
         generations: gen,

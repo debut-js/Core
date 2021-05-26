@@ -1,7 +1,7 @@
 import { TesterTransport } from './tester/tester-transport';
 import { getBotData, BotData, getArgs } from '../utils/cli';
 import { getHistory } from './tester/history';
-import { debutOptions, debutMeta } from '../types/debut';
+import { DebutOptions, DebutMeta } from '../types/debut';
 import { WorkingEnv } from '../types/common';
 
 type Params = {
@@ -28,7 +28,7 @@ const schema: BotData | null = getBotData(bot);
     test(cfg, meta);
 })();
 
-async function test(cfg: debutOptions, meta: debutMeta) {
+async function test(cfg: DebutOptions, meta: DebutMeta) {
     try {
         const transport = new TesterTransport({ ohlc, comission: cfg.fee, broker: cfg.broker });
         const bot = await meta.create(transport, cfg, WorkingEnv.tester);

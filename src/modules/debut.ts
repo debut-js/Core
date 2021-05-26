@@ -5,7 +5,7 @@ import { PluginHook, PluginInterface } from '../types/plugin';
 import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
 import { Candle } from '../types/candle';
 import { PluginDriver } from './plugin-driver';
-import { debutOptions } from '../types/debut';
+import { DebutOptions } from '../types/debut';
 
 export abstract class Debut {
     public orders: ExecutedOrder[] = [];
@@ -23,7 +23,7 @@ export abstract class Debut {
      * @param transport - транспорт для работы с сетью
      * @param opts - настройки
      */
-    constructor(public transport: BaseTransport, public opts: debutOptions) {
+    constructor(public transport: BaseTransport, public opts: DebutOptions) {
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
     }

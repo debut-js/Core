@@ -19,7 +19,7 @@ export interface OrderOptions {
     // Ticker name
     ticker: string;
     // Current candle time
-    time: string;
+    time: number;
     // Broker asset id (if exists)
     figi?: string;
     // Currency name

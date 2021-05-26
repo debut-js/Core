@@ -1,6 +1,6 @@
 import path from 'path';
 import { readFile } from './file';
-import { debutOptions, debutMeta } from '../types/debut';
+import { DebutOptions, DebutMeta } from '../types/debut';
 
 /**
  * API tokens data
@@ -26,8 +26,8 @@ export type BotDataInfo = { name: string; path: string; src: string };
  * Bot meta information e.g. configs, working directories
  */
 export type BotData = {
-    configs: Record<string, debutOptions>;
-    meta: debutMeta;
+    configs: Record<string, DebutOptions>;
+    meta: DebutMeta;
     dir: string;
     src: string;
 };
