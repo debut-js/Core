@@ -59,7 +59,7 @@ export function transformTicks(mticks: Candle[], data: Candles, interval: Candle
 
     for (let i = 0; i < data.candles.length; i++) {
         const candle = data.candles[i];
-        const candleTime = Date.parse(candle.time);
+        const candleTime = candle.time;
         const endTime = candleTime + candleSize;
         let temp: Candle;
 
@@ -68,7 +68,7 @@ export function transformTicks(mticks: Candle[], data: Candles, interval: Candle
 
         for (let j = 0; j < mticks.length; j++) {
             const mtick = mticks[j];
-            const mtickTime = Date.parse(mtick.time);
+            const mtickTime = mtick.time;
 
             if (mtickTime >= candleTime && mtickTime < endTime) {
                 // Обьединим тики в один, чтобы они знали high low друг друга

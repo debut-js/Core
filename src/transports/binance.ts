@@ -257,7 +257,7 @@ export class BinanceTransport implements BaseTransport {
                 l: parseFloat(tick.low),
                 c: parseFloat(tick.close),
                 v: parseFloat(tick.volume),
-                time: new Date(tick.startTime).toISOString(),
+                time: tick.startTime,
             });
         };
     }

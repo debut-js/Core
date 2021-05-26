@@ -5,6 +5,7 @@ import { isSameDay, isWeekend, toIsoString } from '../../../utils/date';
 import { ensureFile, readFile, saveFile } from '../../../utils/file';
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
 import { getTokens } from '../../../utils/cli';
+import { transformTinkoffCandle } from '../../../transports/tinkoff';
 
 const tokens = getTokens();
 const token: string = tokens['tinkoff'];
@@ -25,9 +26,7 @@ export async function getHistoryIntervalTinkoff({
         .candlesGet({ figi, from: toIsoString(start), to: toIsoString(end), interval: convertTimeFrame(interval) })
         .then((data) => data.candles);
 
-    return candles.map((candle) => {
-        return { ...candle, interval } as Candle;
-    });
+    return candles.map(transformTinkoffCandle);
 }
 
 export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
@@ -132,9 +131,7 @@ async function requestDay(
     const payload = { from: toIsoString(from), to: toIsoString(to), figi, interval: convertTimeFrame(interval) };
     const candles = await api.candlesGet(payload).then((data) => data.candles);
 
-    const result = candles.map((candle) => {
-        return { ...candle, interval } as Candle;
-    });
+    const result = candles.map(transformTinkoffCandle);
 
     if (!isSameDay(new Date(), new Date(from))) {
         saveDay(path, result);

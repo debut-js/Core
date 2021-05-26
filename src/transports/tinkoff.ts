@@ -1,4 +1,4 @@
-import OpenAPI, { MoneyAmount } from '@tinkoff/invest-openapi-js-sdk';
+import OpenAPI, { MoneyAmount, Candle as TinkoffCandle, CandleStreaming } from '@tinkoff/invest-openapi-js-sdk';
 import { logDebug } from '../utils/debug';
 import { sleep } from '../utils/promise';
 import { clamp } from '../utils/math';
@@ -8,10 +8,15 @@ import { convertTimeFrame } from '../cli/tester/history-providers/tinkoff';
 import { BaseTransport, Instrument } from '../types/transport';
 import { TickHandler, TimeFrame } from '../types/common';
 import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
+import { Candle } from '../types/candle';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
 type TinkoffTransportArgs = { token: string; proxyPort: number | string };
+
+export function transformTinkoffCandle(candle: TinkoffCandle | CandleStreaming): Candle {
+    return { o: candle.o, h: candle.h, l: candle.l, c: candle.c, time: Date.parse(candle.time), v: candle.v };
+}
 export class TinkoffTransport implements BaseTransport {
     protected api: OpenAPI;
     private instruments: Map<string, Instrument> = new Map();
@@ -68,7 +73,7 @@ export class TinkoffTransport implements BaseTransport {
         try {
             const { figi } = await this.getInstrument(ticker);
             const unsubscribe = this.api.candle({ figi, interval: convertTimeFrame(interval) }, (tick) => {
-                handler(tick);
+                handler(transformTinkoffCandle(tick));
             });
 
             return unsubscribe;

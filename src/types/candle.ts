@@ -5,5 +5,5 @@ export interface Candle {
     h: number;
     l: number;
     v: number;
-    time: string;
+    time: number;
 }

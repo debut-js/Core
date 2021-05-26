@@ -125,7 +125,7 @@ function convertBinanceTicks(data: []) {
     const ticks: Candle[] = [];
     data.forEach((item) => {
         const tick: Candle = {
-            time: new Date(item[0]).toISOString(),
+            time: item[0],
             o: parseFloat(item[1]),
             c: parseFloat(item[4]),
             h: parseFloat(item[2]),
