@@ -2,7 +2,7 @@
     "compilerOptions": {
         "target": "es2019",
         "moduleResolution": "node",
-        "module": "ESNext",
+        "module": "CommonJS",
         "allowJs": true,
         "outDir": "./out",
         "resolveJsonModule": true,

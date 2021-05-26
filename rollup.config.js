@@ -12,7 +12,7 @@ const debut = {
     input: 'src/modules/debut.ts',
     output: {
         file: pkg.main,
-        format: 'esm', // the preferred format
+        format: 'cjs', // the preferred format
     },
     external: [...Object.keys(pkg.dependencies || {}), 'path', 'fs'],
     plugins: [
