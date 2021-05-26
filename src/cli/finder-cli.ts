@@ -1,6 +1,7 @@
-import { GenticWrapperOptions, GeneticWrapper } from './tester/genetic';
+import { GeneticWrapper } from './tester/genetic';
 import { getBotData, BotData, getArgs } from '../utils/cli';
 import { ensureFile, readFile, saveFile } from '../utils/file';
+import { GenticWrapperOptions } from '../types/genetic';
 
 type Params = {
     bot: string;
