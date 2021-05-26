@@ -1,6 +1,9 @@
 {
     "name": "@debut/community-core",
     "version": "2.2.5",
+    "publishConfig": {
+        "access": "public"
+    },
     "description": "Javascript Multibroker Trading System",
     "main": "lib/index.js",
     "module": "lib/index.js",
