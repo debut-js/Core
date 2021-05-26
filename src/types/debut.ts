@@ -17,7 +17,6 @@ export interface DebutOptions {
     margin?: boolean; // Разрешена ли торговля в шорт
     lotsMultiplier?: number; // Множитель лотности, например если нужно сделать х2 или х3 закупку, по умолчанию 1
     equityLevel?: number; // Склько доступно от общего депозита для текущей стратегии
-    brokerUTCoffset?: number; // временная зона брокера (binance UTC-0, moex UTC+3, NYSE UTC-5)
 }
 
 export interface DebutMeta {
