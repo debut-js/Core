@@ -2,40 +2,8 @@ import { Genetic, GeneticOptions, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
 import { DebutOptions } from '../../types/debut';
-import { Candle } from '../../types/candle';
 import { WorkingEnv } from '../../types/common';
 import { getRandomArbitrary, getRandomInt } from '../../utils/math';
-import { BaseTransport } from '../../types/transport';
-import { ConfigValidator } from '../../types/genetic';
-import { Debut } from '../../modules/debut';
-
-export interface GenticWrapperOptions {
-    score: (bot: Debut) => number;
-    stats: (bot: Debut) => unknown;
-    create: (transport: BaseTransport, solution: DebutOptions, environment: WorkingEnv) => Promise<Debut>;
-    generations: number;
-    log?: boolean;
-    populationSize?: number;
-    days: number;
-    ohlc?: boolean;
-    gapDays?: number;
-    validateSchema: ConfigValidator;
-    ticksFilter?: (solution: DebutOptions) => (tick: Candle) => boolean;
-    best?: number;
-}
-
-export interface SchemaDescriptor {
-    min: number; // начальное значение
-    max: number; // конечное значеие
-    int?: boolean; // целочисленное
-    bool?: boolean; // булево
-    odd?: boolean; // Нечетное
-}
-
-export type GeneticSchema<T = any> = {
-    [K in keyof Partial<T>]: SchemaDescriptor;
-};
-
 export class GeneticWrapper {
     private genetic: Genetic<DebutOptions>;
     private transport: TesterTransport;
