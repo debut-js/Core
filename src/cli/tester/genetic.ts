@@ -4,6 +4,7 @@ import { TesterTransport } from './tester-transport';
 import { DebutOptions } from '../../types/debut';
 import { WorkingEnv } from '../../types/common';
 import { getRandomArbitrary, getRandomInt } from '../../utils/math';
+import { GeneticSchema, GenticWrapperOptions } from '../../types/genetic';
 export class GeneticWrapper {
     private genetic: Genetic<DebutOptions>;
     private transport: TesterTransport;
