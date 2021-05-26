@@ -1,7 +1,7 @@
-import { GeneticSchema } from '../cli/tester/genetic';
 import { Debut } from '../modules/debut';
 import { Candle } from './candle';
 import { TimeFrame, WorkingEnv } from './common';
+import { GeneticSchema } from './genetic';
 import { PluginInterface } from './plugin';
 import { BaseTransport } from './transport';
 
