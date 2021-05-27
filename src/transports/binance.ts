@@ -1,8 +1,4 @@
-import { getTokens, getArgs } from '@debut/plugin-utils/dist/cli';
-import { logDebug } from '@debut/plugin-utils/dist/debug';
-import { getPrecision, toFixed, clamp } from '@debut/plugin-utils/dist/math';
-import { getMinIncrementValue, syntheticOrderId } from '@debut/plugin-utils/dist/orders';
-import { sleep } from '@debut/plugin-utils/dist/promise';
+import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     ExecutedOrder,
@@ -59,8 +55,8 @@ export class BinanceTransport implements BaseTransport {
     protected info: ExchangeInfo;
 
     constructor() {
-        const tokens = getTokens();
-        let { btoken, bsecret } = getArgs<BinanceTransportArgs>();
+        const tokens = cli.getTokens();
+        let { btoken, bsecret } = cli.getArgs<BinanceTransportArgs>();
 
         btoken = tokens[btoken];
         bsecret = tokens[bsecret];
@@ -95,12 +91,12 @@ export class BinanceTransport implements BaseTransport {
         const lotFilter = instrument.filters.find((filter) => filter.filterType === 'LOT_SIZE') as SymbolLotSizeFilter;
         // 0.0000100 -> 0.00001
         const minQty = Number(lotFilter.minQty);
-        const lotPrecision = minQty === 1 ? 0 : getPrecision(minQty);
+        const lotPrecision = minQty === 1 ? 0 : math.getPrecision(minQty);
 
         const data: Instrument = {
             figi: ticker,
             ticker: ticker,
-            pipSize: getMinIncrementValue(prices[ticker]),
+            pipSize: orders.getMinIncrementValue(prices[ticker]),
             lot: 1,
             lotPrecision,
         };
@@ -164,10 +160,10 @@ export class BinanceTransport implements BaseTransport {
             }
 
             if (retry > 0) {
-                logDebug('retry success');
+                debug.logDebug('retry success');
             }
 
-            const precision = getPrecision(order.price);
+            const precision = math.getPrecision(order.price);
             // avg trade price
             let fees = 0;
             let price = 0;
@@ -182,12 +178,12 @@ export class BinanceTransport implements BaseTransport {
                 }
             });
 
-            price = toFixed(price / res.fills.length, precision);
+            price = math.toFixed(price / res.fills.length, precision);
 
             const realQty = qty - fees;
             let lots = this.prepareLots(realQty, ticker);
             const isInteger = parseInt(`${lots}`) === lots;
-            const lotsRedunantValue = isInteger ? 1 : getMinIncrementValue(lots);
+            const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
 
             // Issue with rounding
             // Reduce lots when rounding is more than source amount
@@ -209,19 +205,19 @@ export class BinanceTransport implements BaseTransport {
             return executed;
         } catch (e) {
             if (!retry || retry <= 10) {
-                logDebug('error order place', e);
+                debug.logDebug('error order place', e);
                 retry = (retry || 0) + 1;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
                 // тк блокировка длится в среднем 30 минут
                 const timeout = Math.floor(
-                    clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
+                    math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
                 );
-                await sleep(timeout);
+                await promise.sleep(timeout);
 
                 return this.placeOrder(order);
             }
 
-            logDebug('retry failure with order', order);
+            debug.logDebug('retry failure with order', order);
             throw e;
         }
     }
@@ -231,7 +227,7 @@ export class BinanceTransport implements BaseTransport {
         const commission = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,
-            orderId: syntheticOrderId(order),
+            orderId: orders.syntheticOrderId(order),
             executedLots: order.lots,
             commission,
         };
@@ -251,7 +247,7 @@ export class BinanceTransport implements BaseTransport {
             return Math.floor(lots);
         }
 
-        return toFixed(lots, instrument.lotPrecision);
+        return math.toFixed(lots, instrument.lotPrecision);
     }
 
     private handlerAdapter(handler: TickHandler) {

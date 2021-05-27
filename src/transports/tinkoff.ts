@@ -1,8 +1,4 @@
-import { getArgs, getTokens } from '@debut/plugin-utils/dist/cli';
-import { logDebug } from '@debut/plugin-utils/dist/debug';
-import { clamp } from '@debut/plugin-utils/dist/math';
-import { syntheticOrderId } from '@debut/plugin-utils/dist/orders';
-import { sleep } from '@debut/plugin-utils/dist/promise';
+import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
@@ -51,8 +47,8 @@ export class TinkoffTransport implements BaseTransport {
     private instruments: Map<string, Instrument> = new Map();
 
     constructor() {
-        let { token, proxyPort } = getArgs<TinkoffTransportArgs>();
-        const tokens = getTokens();
+        let { token, proxyPort } = cli.getArgs<TinkoffTransportArgs>();
+        const tokens = cli.getTokens();
 
         proxyPort = proxyPort && Number(proxyPort);
         token = tokens[token];
@@ -107,7 +103,7 @@ export class TinkoffTransport implements BaseTransport {
 
             return unsubscribe;
         } catch (e) {
-            logDebug(e);
+            debug.logDebug(e);
         }
     }
 
@@ -128,7 +124,7 @@ export class TinkoffTransport implements BaseTransport {
             }
 
             if (retry) {
-                logDebug(' retry success');
+                debug.logDebug(' retry success');
             }
 
             order = { ...res, ...order };
@@ -141,19 +137,19 @@ export class TinkoffTransport implements BaseTransport {
             return order as ExecutedOrder;
         } catch (e) {
             if (!retry || retry <= 10) {
-                logDebug(' error order place \n', e);
+                debug.logDebug(' error order place \n', e);
                 retry++;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
                 // тк блокировка длится в среднем 30 минут
                 const timeout = Math.floor(
-                    clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
+                    math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
                 );
-                await sleep(timeout);
+                await promise.sleep(timeout);
 
                 return this.placeOrder(order);
             }
 
-            logDebug(' retry failure with order', order);
+            debug.logDebug(' retry failure with order', order);
             throw e;
         }
     }
@@ -163,7 +159,7 @@ export class TinkoffTransport implements BaseTransport {
         const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,
-            orderId: syntheticOrderId(order),
+            orderId: orders.syntheticOrderId(order),
             executedLots: order.lots,
             commission,
         };
