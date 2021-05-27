@@ -196,7 +196,7 @@ export abstract class Debut implements DebutCore {
             };
 
             // Пропуск открытия по причине запрета плагином дальнейших действий
-            const skip = await this.pluginDriver.asyncSkipReduce(PluginHook.onBeforeClose, closeOrder);
+            const skip = await this.pluginDriver.asyncSkipReduce(PluginHook.onBeforeClose, closeOrder, closing);
 
             if (skip) {
                 closing.processing = false;
