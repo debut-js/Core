@@ -1,13 +1,20 @@
-import { inverseType } from '../utils/orders';
+import { orders } from '@debut/plugin-utils';
 import { getHistory } from '../cli/tester/history';
-import { BaseTransport, Instrument } from '../types/transport';
-import { PluginHook, PluginInterface } from '../types/plugin';
-import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
-import { Candle } from '../types/candle';
 import { PluginDriver } from './plugin-driver';
-import { DebutOptions } from '../types/debut';
+import {
+    BaseTransport,
+    Candle,
+    DebutCore,
+    DebutOptions,
+    ExecutedOrder,
+    Instrument,
+    OrderOptions,
+    OrderType,
+    PluginHook,
+    PluginInterface,
+} from '@debut/types';
 
-export abstract class Debut {
+export abstract class Debut implements DebutCore {
     public orders: ExecutedOrder[] = [];
     public dispose: () => void;
     public instrument: Instrument;
@@ -156,7 +163,7 @@ export abstract class Debut {
         const { currency, interval, broker, margin, lotsMultiplier, equityLevel } = this.opts;
         const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
 
-        const type = inverseType(closing.type);
+        const type = orders.inverseType(closing.type);
         const lots = this.transport.prepareLots(closing.executedLots * lotSize, ticker);
 
         closing.processing = true;

@@ -1,3 +1,17 @@
+import { getTokens, getArgs } from '@debut/plugin-utils/dist/cli';
+import { logDebug } from '@debut/plugin-utils/dist/debug';
+import { getPrecision, toFixed, clamp } from '@debut/plugin-utils/dist/math';
+import { getMinIncrementValue, syntheticOrderId } from '@debut/plugin-utils/dist/orders';
+import { sleep } from '@debut/plugin-utils/dist/promise';
+import {
+    BaseTransport,
+    ExecutedOrder,
+    Instrument,
+    OrderOptions,
+    OrderType,
+    TickHandler,
+    TimeFrame,
+} from '@debut/types';
 import Binance, {
     Candle as BinanceCandle,
     CandleChartInterval,
@@ -6,15 +20,6 @@ import Binance, {
     Order,
     SymbolLotSizeFilter,
 } from 'binance-api-node';
-import { sleep } from '../utils/promise';
-import { getMinIncrementValue, syntheticOrderId } from '../utils/orders';
-import { logDebug } from '../utils/debug';
-import { clamp, toFixed, getPrecision } from '../utils/math';
-import { getArgs, getTokens } from '../utils/cli';
-import { Instrument } from '..';
-import { BaseTransport } from '../types/transport';
-import { TickHandler, TimeFrame } from '../types/common';
-import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
 
 /**
  * Example order data

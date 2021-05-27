@@ -1,5 +1,4 @@
-import { Candle } from '../../types/candle';
-import { TimeFrame } from '../../types/common';
+import { Candle, TimeFrame } from '@debut/types';
 import { getTicksFromBinance, getTicksIntervalBinance } from './history-providers/binance';
 import { getHistoryFromTinkoff, getHistoryIntervalTinkoff } from './history-providers/tinkoff';
 

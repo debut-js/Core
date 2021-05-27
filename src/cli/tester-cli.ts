@@ -1,8 +1,7 @@
 import { TesterTransport } from './tester/tester-transport';
-import { getBotData, BotData, getArgs } from '../utils/cli';
 import { getHistory } from './tester/history';
-import { DebutOptions, DebutMeta } from '../types/debut';
-import { WorkingEnv } from '../types/common';
+import { cli } from '@debut/plugin-utils';
+import { DebutMeta, DebutOptions, WorkingEnv } from '@debut/types';
 
 type Params = {
     bot: string;
@@ -12,9 +11,9 @@ type Params = {
     gap?: number;
 };
 
-const args = getArgs() as Params;
+const args = cli.getArgs<Params>();
 const { bot, ticker, days = 1000, ohlc, gap = 0 } = args;
-const schema: BotData | null = getBotData(bot);
+const schema: cli.BotData | null = cli.getBotData(bot);
 
 (async function () {
     if (!schema) {

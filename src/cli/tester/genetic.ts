@@ -1,10 +1,8 @@
+import { math } from '@debut/plugin-utils';
+import { DebutOptions, GeneticSchema, GenticWrapperOptions, WorkingEnv, SchemaDescriptor } from '@debut/types';
 import { Genetic, GeneticOptions, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
-import { DebutOptions } from '../../types/debut';
-import { WorkingEnv } from '../../types/common';
-import { getRandomArbitrary, getRandomInt } from '../../utils/math';
-import { GeneticSchema, GenticWrapperOptions } from '../../types/genetic';
 export class GeneticWrapper {
     private genetic: Genetic<DebutOptions>;
     private transport: TesterTransport;
@@ -117,20 +115,7 @@ export class GeneticWrapper {
         const solution = { ...this.baseOpts };
 
         this.schemaKeys.forEach((key) => {
-            const range = this.schema[key];
-            let randomValue: number | boolean;
-
-            switch (true) {
-                case range.bool:
-                    randomValue = Math.random() > 0.5;
-                case range.int:
-                    randomValue = getRandomInt(range.min, range.max, range.odd);
-                    break;
-                default:
-                    randomValue = getRandomArbitrary(range.min, range.max, range.odd);
-                    break;
-            }
-            solution[key] = randomValue;
+            solution[key] = getRandomByRange(this.schema[key]);
         });
 
         if (this.options.validateSchema(solution)) {
@@ -175,10 +160,7 @@ export class GeneticWrapper {
 
         this.schemaKeys.forEach((key) => {
             if (key in this.schema && Math.random() < 0.3) {
-                const range = this.schema[key];
-                const randomFn = range.int ? getRandomInt : getRandomArbitrary;
-
-                solution[key] = randomFn(range.min, range.max);
+                solution[key] = getRandomByRange(this.schema[key]);
             }
         });
 
@@ -220,4 +202,21 @@ export class GeneticWrapper {
 
         return true;
     };
+}
+
+function getRandomByRange(range: SchemaDescriptor) {
+    let randomValue: number | boolean;
+
+    switch (true) {
+        case range.bool:
+            randomValue = Math.random() > 0.5;
+        case range.int:
+            randomValue = math.getRandomInt(range.min, range.max, range.odd);
+            break;
+        default:
+            randomValue = math.getRandomArbitrary(range.min, range.max, range.odd);
+            break;
+    }
+
+    return randomValue;
 }

@@ -1,17 +1,14 @@
 import OpenAPI from '@tinkoff/invest-openapi-js-sdk';
-import { Candle } from '../../../types/candle';
-import { TimeFrame } from '../../../types/common';
-import { isSameDay, isWeekend, toIsoString } from '../../../utils/date';
-import { ensureFile, readFile, saveFile } from '../../../utils/file';
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
-import { getTokens } from '../../../utils/cli';
 import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
+import { cli, date, file } from '@debut/plugin-utils';
+import { Candle, TimeFrame } from '@debut/types';
 
-const tokens = getTokens();
+const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
 const apiURL = 'https://api-invest.tinkoff.ru/openapi';
 const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
-const date = new Date();
+const now = new Date();
 const api = new OpenAPI({ apiURL, secretToken: token, socketURL });
 
 export async function getHistoryIntervalTinkoff({
@@ -23,7 +20,12 @@ export async function getHistoryIntervalTinkoff({
     const { figi } = await api.searchOne({ ticker });
 
     const candles = await api
-        .candlesGet({ figi, from: toIsoString(start), to: toIsoString(end), interval: convertTimeFrame(interval) })
+        .candlesGet({
+            figi,
+            from: date.toIsoString(start),
+            to: date.toIsoString(end),
+            interval: convertTimeFrame(interval),
+        })
         .then((data) => data.candles);
 
     return candles.map(transformTinkoffCandle);
@@ -33,12 +35,12 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
     const reqs = [];
     const { figi } = await api.searchOne({ ticker });
 
-    date.setMinutes(0);
-    date.setHours(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
+    now.setMinutes(0);
+    now.setHours(0);
+    now.setSeconds(0);
+    now.setMilliseconds(0);
 
-    const end = date.getTime() - 86400 * 1000 * gapDays;
+    const end = now.getTime() - 86400 * 1000 * gapDays;
     let from: number = new Date(end - 86400 * 1000 * days).getTime();
     let to = from;
     let chunks = 1;
@@ -85,8 +87,8 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
 }
 
 function saveDay(path: string, data: Candle[]) {
-    ensureFile(path);
-    saveFile(path, data);
+    file.ensureFile(path);
+    file.saveFile(path, data);
 }
 
 function getPath(ticker: string, interval: TimeFrame, from: number, to: number) {
@@ -117,23 +119,28 @@ async function requestDay(
     interval: TimeFrame,
 ): Promise<Candle[]> {
     // Не запрашиваем историю текущего дня
-    if (isWeekend(from)) {
+    if (date.isWeekend(from)) {
         return Promise.resolve([]);
     }
 
     const path = getPath(ticker, interval, from, to);
-    const file = readFile(path);
+    const historyFile = file.readFile(path);
 
-    if (file) {
-        return Promise.resolve(JSON.parse(file));
+    if (historyFile) {
+        return Promise.resolve(JSON.parse(historyFile));
     }
 
-    const payload = { from: toIsoString(from), to: toIsoString(to), figi, interval: convertTimeFrame(interval) };
+    const payload = {
+        from: date.toIsoString(from),
+        to: date.toIsoString(to),
+        figi,
+        interval: convertTimeFrame(interval),
+    };
     const candles = await api.candlesGet(payload).then((data) => data.candles);
 
     const result = candles.map(transformTinkoffCandle);
 
-    if (!isSameDay(new Date(), new Date(from))) {
+    if (!date.isSameDay(new Date(), new Date(from))) {
         saveDay(path, result);
     }
 

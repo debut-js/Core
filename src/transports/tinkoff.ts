@@ -1,18 +1,24 @@
+import { getArgs, getTokens } from '@debut/plugin-utils/dist/cli';
+import { logDebug } from '@debut/plugin-utils/dist/debug';
+import { clamp } from '@debut/plugin-utils/dist/math';
+import { syntheticOrderId } from '@debut/plugin-utils/dist/orders';
+import { sleep } from '@debut/plugin-utils/dist/promise';
+import {
+    BaseTransport,
+    Candle,
+    ExecutedOrder,
+    Instrument,
+    OrderOptions,
+    OrderType,
+    TickHandler,
+    TimeFrame,
+} from '@debut/types';
 import OpenAPI, {
     MoneyAmount,
     Candle as TinkoffCandle,
     CandleStreaming,
     CandleResolution,
 } from '@tinkoff/invest-openapi-js-sdk';
-import { logDebug } from '../utils/debug';
-import { sleep } from '../utils/promise';
-import { clamp } from '../utils/math';
-import { syntheticOrderId } from '../utils/orders';
-import { getArgs, getTokens } from '../utils/cli';
-import { BaseTransport, Instrument } from '../types/transport';
-import { TickHandler, TimeFrame } from '../types/common';
-import { ExecutedOrder, OrderOptions, OrderType } from '../types/order';
-import { Candle } from '../types/candle';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 

@@ -1,6 +1,5 @@
-import { getBotData, BotData, getArgs } from '../utils/cli';
-import { DebutOptions } from '../types/debut';
-import { GenticWrapperOptions } from '../types/genetic';
+import { cli } from '@debut/plugin-utils';
+import { DebutOptions, GenticWrapperOptions } from '@debut/types';
 import { GeneticWrapper } from './tester/genetic';
 
 type GeneticParams = {
@@ -16,10 +15,10 @@ type GeneticParams = {
     best?: number;
 };
 
-const args = getArgs() as GeneticParams;
+const args = cli.getArgs() as GeneticParams;
 const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, best = 5 } = args;
 
-const schema: BotData | null = getBotData(bot);
+const schema: cli.BotData | null = cli.getBotData(bot);
 
 (async function () {
     if (!schema) {

@@ -1,19 +1,20 @@
-import { Debut } from './debut';
 import {
-    PluginInterface,
+    PluginDriverInterface,
+    DebutCore,
     PluginCtx,
-    AsyncHooks,
-    HookArguments,
-    PluginHook,
-    SkippingHooks,
+    PluginInterface,
     SyncHooks,
-} from '../types/plugin';
+    HookArguments,
+    SkippingHooks,
+    AsyncHooks,
+    PluginHook,
+} from '@debut/types';
 
-export class PluginDriver {
+export class PluginDriver implements PluginDriverInterface {
     private pluginCtx: PluginCtx;
     private plugins: PluginInterface[] = [];
 
-    constructor(private debut: Debut) {
+    constructor(private debut: DebutCore) {
         this.pluginCtx = Object.freeze({
             findPlugin: this.findPlugin,
             debut: this.debut,

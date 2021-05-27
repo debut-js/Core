@@ -1,10 +1,7 @@
-import { HistoryOptions, HistoryIntervalOptions } from '../history';
-import { ensureFile, readFile, saveFile } from '../../../utils/file';
-import { isSameDay } from '../../../utils/date';
+import { promise, file, date } from '@debut/plugin-utils';
+import { TimeFrame, Candle } from '@debut/types';
 import { convertTimeFrame } from '../../../transports/binance';
-import { sleep } from '../../../utils/promise';
-import { Candle } from '../../../types/candle';
-import { TimeFrame } from '../../../types/common';
+import { HistoryOptions, HistoryIntervalOptions } from '../history';
 
 export async function getTicksIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
     const frameMin = convertTimeFrame(interval);
@@ -57,7 +54,7 @@ export async function getTicksFromBinance(options: HistoryOptions): Promise<Cand
             reqs.length = 0;
             from = chunkStart;
 
-            await sleep(Math.pow(2, tries) * 10_000);
+            await promise.sleep(Math.pow(2, tries) * 10_000);
         }
     }
 
@@ -67,11 +64,11 @@ export async function getTicksFromBinance(options: HistoryOptions): Promise<Cand
 async function requestDay(from: number, to: number, ticker: string, interval: TimeFrame): Promise<Candle[]> {
     const frameMin = convertTimeFrame(interval);
     const path = getPath(ticker, interval, from, to);
-    const file = readFile(path);
+    const historyFile = file.readFile(path);
     let candles: Candle[] = [];
 
-    if (file) {
-        candles = JSON.parse(file);
+    if (historyFile) {
+        candles = JSON.parse(historyFile);
     } else {
         const middleDay = from + 12 * 60 * 60 * 1000 - 1000;
         const urlPart1 = `https://api.binance.com/api/v1/klines?symbol=${ticker}&interval=${frameMin}&startTime=${from}&endTime=${middleDay}&limit=720`;
@@ -87,7 +84,7 @@ async function requestDay(from: number, to: number, ticker: string, interval: Ti
 
         candles = convertBinanceTicks([...candles1, ...candles2]);
 
-        if (!isSameDay(new Date(), new Date(from))) {
+        if (!date.isSameDay(new Date(), new Date(from))) {
             saveDay(path, candles);
         }
     }
@@ -96,8 +93,8 @@ async function requestDay(from: number, to: number, ticker: string, interval: Ti
 }
 
 function saveDay(path: string, data: Candle[]) {
-    ensureFile(path);
-    saveFile(path, data);
+    file.ensureFile(path);
+    file.saveFile(path, data);
 }
 
 function getPath(ticker: string, interval: TimeFrame, from: number, to: number) {

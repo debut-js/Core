@@ -1,7 +1,6 @@
+import { cli, file } from '@debut/plugin-utils';
+import { GenticWrapperOptions } from '@debut/types';
 import { GeneticWrapper } from './tester/genetic';
-import { getBotData, BotData, getArgs } from '../utils/cli';
-import { ensureFile, readFile, saveFile } from '../utils/file';
-import { GenticWrapperOptions } from '../types/genetic';
 
 type Params = {
     bot: string;
@@ -16,10 +15,10 @@ type Params = {
     crypt?: boolean;
 };
 
-const args = getArgs() as Params;
+const args = cli.getArgs<Params>();
 
 const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, crypt } = args;
-const schema: BotData | null = getBotData(bot);
+const schema: cli.BotData | null = cli.getBotData(bot);
 
 (async function () {
     if (!schema) {
@@ -49,7 +48,7 @@ const schema: BotData | null = getBotData(bot);
     }
 
     const stockPath = crypt ? 'crypt.json' : 'stocks.json';
-    const stocks = JSON.parse(readFile(stockPath));
+    const stocks = JSON.parse(file.readFile(stockPath));
     const currentTicker = stocks.pop();
 
     if (!currentTicker) {
@@ -59,7 +58,7 @@ const schema: BotData | null = getBotData(bot);
     const genetic = new GeneticWrapper(options);
     const config = { ...originCfg, ticker: currentTicker, amount: Number(amount) };
 
-    saveFile(stockPath, stocks);
+    file.saveFile(stockPath, stocks);
 
     let stats = await genetic.start(meta.parameters, config);
     const path = `public/reports/${bot}/${config.interval}/tickers/${currentTicker}.json`;
@@ -72,7 +71,7 @@ const schema: BotData | null = getBotData(bot);
         .filter((stat) => stat.stats);
 
     if (stats.length) {
-        ensureFile(path);
-        saveFile(path, stats);
+        file.ensureFile(path);
+        file.saveFile(path, stats);
     }
 })();

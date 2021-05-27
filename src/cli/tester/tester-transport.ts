@@ -1,10 +1,5 @@
-import { BaseTransport, Instrument } from '../../types/transport';
-import { syntheticOrderId } from '../../utils/orders';
-import { sleep } from '../../utils/promise';
-import { toFixed } from '../../utils/math';
-import { Candle } from '../../types/candle';
-import { TickHandler } from '../../types/common';
-import { ExecutedOrder, OrderOptions } from '../../types/order';
+import { promise, orders, math } from '@debut/plugin-utils';
+import { BaseTransport, TickHandler, Instrument, OrderOptions, ExecutedOrder, Candle } from '@debut/types';
 
 type TesterTransportOptions = {
     comission?: number;
@@ -83,7 +78,7 @@ export class TesterTransport implements BaseTransport {
     public async run(waitFor?: boolean): Promise<void> {
         if (waitFor) {
             const prev = this.handlers.length;
-            await sleep(1000);
+            await promise.sleep(1000);
             if (prev !== this.handlers.length) {
                 return this.run(waitFor);
             }
@@ -137,7 +132,7 @@ export class TesterTransport implements BaseTransport {
         const commission = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,
-            orderId: syntheticOrderId(order),
+            orderId: orders.syntheticOrderId(order),
             executedLots: order.lots,
             commission,
         };
@@ -156,7 +151,7 @@ export class TesterTransport implements BaseTransport {
     public prepareLots(lots: number) {
         switch (this.opts.broker) {
             case 'binance':
-                return toFixed(lots, 6);
+                return math.toFixed(lots, 6);
             case 'tinkoff':
             default:
                 return Math.floor(lots) || 1;
