@@ -15,9 +15,11 @@ import {
 } from '@debut/types';
 
 export abstract class Debut implements DebutCore {
-    public orders: ExecutedOrder[] = [];
     public dispose: () => void;
     public instrument: Instrument;
+    public opts: DebutOptions;
+    public orders: ExecutedOrder[] = [];
+    public transport: BaseTransport;
     protected plugins: unknown;
     protected candles: Candle[] = [];
     protected prevTick: Candle;
@@ -30,9 +32,10 @@ export abstract class Debut implements DebutCore {
      * @param transport - транспорт для работы с сетью
      * @param opts - настройки
      */
-    constructor(public transport: BaseTransport, public opts: DebutOptions) {
+    constructor(transport: BaseTransport, opts: DebutOptions) {
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
+        this.opts = opts;
     }
 
     /**
