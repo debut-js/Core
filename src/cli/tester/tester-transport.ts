@@ -2,23 +2,23 @@ import { promise, orders, math } from '@debut/plugin-utils';
 import { BaseTransport, TickHandler, Instrument, OrderOptions, ExecutedOrder, Candle } from '@debut/types';
 
 type TesterTransportOptions = {
-    comission?: number;
+    ticker: string;
+    comission: number;
     ohlc?: boolean;
     broker?: string;
-    ticker?: string;
 };
 
 export class TesterTransport implements BaseTransport {
     public done: Promise<boolean>;
     private ticks: Candle[] = [];
     private handlers: TickHandler[] = [];
-    public opts: TesterTransportOptions = {};
+    public opts: TesterTransportOptions;
     public complete: Promise<void>;
     private precision: number;
     private resolve: () => void;
     private fee: number;
 
-    constructor(opts: TesterTransportOptions = {}) {
+    constructor(opts: TesterTransportOptions) {
         this.opts = opts;
         this.reset();
         this.fee = this.opts.comission / 100 || 0.0003;
