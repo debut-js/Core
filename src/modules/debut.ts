@@ -87,7 +87,7 @@ export abstract class Debut implements DebutCore {
     /**
      * Закрыть все открытые позиции
      */
-    public async closeAll() {
+    public async closeAll(force = false) {
         if (!this.orders.length) {
             return;
         }
@@ -95,7 +95,7 @@ export abstract class Debut implements DebutCore {
         const tasks: Array<Promise<ExecutedOrder>> = [];
 
         for (const order of this.orders) {
-            tasks.push(this.closeOrder(order));
+            tasks.push(this.closeOrder(order, force));
         }
 
         return await Promise.all(tasks);
@@ -156,7 +156,7 @@ export abstract class Debut implements DebutCore {
     /**
      * Закрыть переданную позицию
      */
-    public async closeOrder(closing: ExecutedOrder) {
+    public async closeOrder(closing: ExecutedOrder, force = false) {
         // Уже закрывается
         if (closing.processing) {
             return;
@@ -189,6 +189,7 @@ export abstract class Debut implements DebutCore {
                 openId: closing.orderId,
                 sandbox: closing.sandbox,
                 learning: closing.learning,
+                force,
                 time,
                 margin,
                 lotsMultiplier,
