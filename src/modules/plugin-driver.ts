@@ -8,6 +8,7 @@ import {
     SkippingHooks,
     AsyncHooks,
     PluginHook,
+    HookToArgumentsMap,
 } from '@debut/types';
 
 export class PluginDriver implements PluginDriverInterface {
@@ -42,13 +43,14 @@ export class PluginDriver implements PluginDriverInterface {
 
         return Object.freeze(api);
     }
-    public syncReduce(hookName: SyncHooks, ...args: HookArguments) {
+
+    public syncReduce<T extends SyncHooks>(hookName: T, ...args: Parameters<HookToArgumentsMap[T]>) {
         for (const plugin of this.plugins) {
             this.runHook(hookName, plugin, ...args);
         }
     }
 
-    public async asyncSkipReduce(hookName: SkippingHooks, ...args: HookArguments) {
+    public async asyncSkipReduce<T extends SkippingHooks>(hookName: T, ...args: Parameters<HookToArgumentsMap[T]>) {
         for (const plugin of this.plugins) {
             const skip = await this.runHook(hookName, plugin, ...args);
 
@@ -60,15 +62,20 @@ export class PluginDriver implements PluginDriverInterface {
         return false;
     }
 
-    public async asyncReduce(hookName: AsyncHooks, ...args: HookArguments) {
+    public async asyncReduce<T extends AsyncHooks>(hookName: AsyncHooks, ...args: Parameters<HookToArgumentsMap[T]>) {
         for (const plugin of this.plugins) {
             await this.runHook(hookName, plugin, ...args);
         }
     }
 
-    public runHook(hookName: PluginHook, plugin: PluginInterface, ...args: HookArguments): Promise<boolean> | void {
+    public runHook<T extends PluginHook>(
+        hookName: PluginHook,
+        plugin: PluginInterface,
+        ...args: Parameters<HookToArgumentsMap[T]>
+    ) {
         if (hookName in plugin) {
-            return plugin[hookName].call(this.pluginCtx, ...args);
+            // @ts-ignore ts issue?
+            return plugin[hookName](...args);
         }
     }
 

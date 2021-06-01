@@ -58,14 +58,14 @@ export abstract class Debut implements DebutCore {
     public registerPlugins(plugins: PluginInterface[]) {
         this.pluginDriver.register(plugins);
         this.plugins = this.pluginDriver.getPublicAPI();
-        this.pluginDriver.syncReduce(PluginHook.onInit);
+        this.pluginDriver.syncReduce<PluginHook.onInit>(PluginHook.onInit);
     }
 
     /**
      * Бот подписывается на тики по заданному инструменту
      */
     public async start() {
-        await this.pluginDriver.asyncReduce(PluginHook.onStart);
+        await this.pluginDriver.asyncReduce<PluginHook.onStart>(PluginHook.onStart);
         this.instrument = await this.transport.getInstrument(this.opts.ticker);
         const unsubscribe = await this.transport.subscribeToTick(this.opts.ticker, this.handler, this.opts.interval);
 
@@ -73,7 +73,7 @@ export abstract class Debut implements DebutCore {
             await this.closeAll(true);
             unsubscribe();
 
-            return this.pluginDriver.asyncReduce(PluginHook.onDispose);
+            return this.pluginDriver.asyncReduce<PluginHook.onDispose>(PluginHook.onDispose);
         };
 
         return this.dispose;
@@ -138,7 +138,10 @@ export abstract class Debut implements DebutCore {
             };
 
             // Пропуск открытия по причине запрета плагином дальнейших действий
-            const skip = await this.pluginDriver.asyncSkipReduce(PluginHook.onBeforeOpen, orderOptions);
+            const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeOpen>(
+                PluginHook.onBeforeOpen,
+                orderOptions,
+            );
 
             if (skip) {
                 return;
@@ -146,7 +149,7 @@ export abstract class Debut implements DebutCore {
 
             const order = await this.transport.placeOrder(orderOptions);
 
-            await this.pluginDriver.asyncReduce(PluginHook.onOpen, order);
+            await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
 
             this.orders.push(order);
             await this.onOrderOpened(order);
@@ -201,7 +204,11 @@ export abstract class Debut implements DebutCore {
             };
 
             // Пропуск открытия по причине запрета плагином дальнейших действий
-            const skip = await this.pluginDriver.asyncSkipReduce(PluginHook.onBeforeClose, closeOrder, closing);
+            const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeClose>(
+                PluginHook.onBeforeClose,
+                closeOrder,
+                closing,
+            );
 
             if (skip) {
                 closing.processing = false;
@@ -216,7 +223,7 @@ export abstract class Debut implements DebutCore {
                 this.orders.splice(idx, 1);
             }
 
-            await this.pluginDriver.asyncReduce(PluginHook.onClose, order, closing);
+            await this.pluginDriver.asyncReduce<PluginHook.onClose>(PluginHook.onClose, order, closing);
             await this.onOrderClosed(order, closing);
 
             closing.processing = false;
@@ -259,7 +266,7 @@ export abstract class Debut implements DebutCore {
         // Затем вызваем хуки, чтобы плагины могли закрыть по маркету
         this.marketTick = tick;
 
-        const skip = await this.pluginDriver.asyncSkipReduce(PluginHook.onTick, tick);
+        const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onTick>(PluginHook.onTick, tick);
 
         if (skip) {
             return;
@@ -272,9 +279,9 @@ export abstract class Debut implements DebutCore {
             }
 
             this.candles.unshift(this.prevTick);
-            await this.pluginDriver.asyncReduce(PluginHook.onCandle, this.prevTick);
+            await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, this.prevTick);
             await this.onCandle(this.prevTick);
-            await this.pluginDriver.asyncReduce(PluginHook.onAfterCandle, this.prevTick);
+            await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, this.prevTick);
         }
 
         this.prevTick = tick;
