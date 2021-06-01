@@ -70,7 +70,7 @@ export abstract class Debut implements DebutCore {
         const unsubscribe = await this.transport.subscribeToTick(this.opts.ticker, this.handler, this.opts.interval);
 
         this.dispose = async () => {
-            await this.closeAll(true);
+            await this.closeAll();
             unsubscribe();
 
             return this.pluginDriver.asyncReduce<PluginHook.onDispose>(PluginHook.onDispose);
@@ -89,15 +89,16 @@ export abstract class Debut implements DebutCore {
     /**
      * Закрыть все открытые позиции
      */
-    public async closeAll(force = false) {
+    public async closeAll() {
         if (!this.orders.length) {
             return;
         }
 
         const orders: Array<ExecutedOrder> = [];
 
-        for (const order of this.orders) {
-            const executedOrder = await this.closeOrder(order, force);
+        // Because close order mutate this.orders array, make shallow immutable for loop
+        while (this.orders.length > 0) {
+            const executedOrder = await this.closeOrder(this.orders[0]);
 
             orders.push(executedOrder);
         }
@@ -163,7 +164,7 @@ export abstract class Debut implements DebutCore {
     /**
      * Закрыть переданную позицию
      */
-    public async closeOrder(closing: ExecutedOrder, force = false) {
+    public async closeOrder(closing: ExecutedOrder) {
         // Уже закрывается
         if (closing.processing) {
             return;
@@ -196,7 +197,6 @@ export abstract class Debut implements DebutCore {
                 openId: closing.orderId,
                 sandbox: closing.sandbox,
                 learning: closing.learning,
-                force,
                 time,
                 margin,
                 lotsMultiplier,
