@@ -1,5 +1,13 @@
 import { math } from '@debut/plugin-utils';
-import { DebutOptions, GeneticSchema, GenticWrapperOptions, WorkingEnv, SchemaDescriptor, SchemaBoolDescriptor, SchemaNumberDescriptor } from '@debut/types';
+import {
+    DebutOptions,
+    GeneticSchema,
+    GenticWrapperOptions,
+    WorkingEnv,
+    SchemaDescriptor,
+    SchemaBoolDescriptor,
+    SchemaNumberDescriptor,
+} from '@debut/types';
 import { Genetic, GeneticOptions, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
@@ -39,7 +47,12 @@ export class GeneticWrapper {
             this.schemaKeys = Object.keys(schema);
             this.configLookup = new Map();
             this.baseOpts = opts;
-            this.transport = new TesterTransport({ ohlc: this.options.ohlc, comission: opts.fee, broker: opts.broker, ticker: opts.ticker });
+            this.transport = new TesterTransport({
+                ohlc: this.options.ohlc,
+                comission: opts.fee,
+                broker: opts.broker,
+                ticker: opts.ticker,
+            });
 
             const { broker = 'tinkoff', ticker, interval } = opts;
             const { days, gapDays } = this.options;
@@ -207,13 +220,12 @@ export class GeneticWrapper {
 function getRandomByRange(range: SchemaDescriptor) {
     let randomValue: number | boolean;
 
-
     if ('bool' in range) {
         randomValue = Math.random() > 0.5;
     } else if (range.int) {
         randomValue = math.getRandomInt(range.min, range.max, range.odd);
     } else {
-        randomValue =  math.getRandomArbitrary(range.min, range.max, range.odd);
+        randomValue = math.getRandomArbitrary(range.min, range.max, range.odd);
     }
 
     return randomValue;

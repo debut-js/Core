@@ -70,7 +70,9 @@ export abstract class Debut implements DebutCore {
         const unsubscribe = await this.transport.subscribeToTick(this.opts.ticker, this.handler, this.opts.interval);
 
         this.dispose = async () => {
+            await this.closeAll(true);
             unsubscribe();
+
             return this.pluginDriver.asyncReduce(PluginHook.onDispose);
         };
 
@@ -92,13 +94,15 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        const tasks: Array<Promise<ExecutedOrder>> = [];
+        const orders: Array<ExecutedOrder> = [];
 
         for (const order of this.orders) {
-            tasks.push(this.closeOrder(order, force));
+            const executedOrder = await this.closeOrder(order, force);
+
+            orders.push(executedOrder);
         }
 
-        return await Promise.all(tasks);
+        return orders;
     }
 
     /**
