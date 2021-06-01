@@ -74,8 +74,7 @@ export class PluginDriver implements PluginDriverInterface {
         ...args: Parameters<HookToArgumentsMap[T]>
     ) {
         if (hookName in plugin) {
-            // @ts-ignore ts issue?
-            return plugin[hookName](...args);
+            return plugin[hookName].call(this.pluginCtx, ...args);
         }
     }
 
