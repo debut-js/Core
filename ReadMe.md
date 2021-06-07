@@ -29,7 +29,7 @@ Debut - это библиотека для разработки и тестир�
 ## Установка
 
 ```bash
-npm install --save debutjs
+npm install --save @debut/community-core
 ```
 
 ## [Документация](docs/)
