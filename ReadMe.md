@@ -1,5 +1,5 @@
-![](https://img.shields.io/npm/v/@debut/core)
-![](https://img.shields.io/github/license/debut-js/core)
+![](https://img.shields.io/npm/v/@debut/community-core)
+![](https://img.shields.io/github/license/debut-js/Core)
 [![Chat on Telegram](https://img.shields.io/badge/Chat%20on-Telegram-brightgreen.svg)](https://t.me/joinchat/Acu2sbLIy_c0OWIy)
 
 </p>
