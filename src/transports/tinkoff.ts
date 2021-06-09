@@ -92,6 +92,8 @@ export class TinkoffTransport implements BaseTransport {
         };
 
         this.instruments.set(ticker, instrument);
+
+        return instrument;
     }
 
     public async subscribeToTick(ticker: string, handler: TickHandler, interval?: TimeFrame) {
