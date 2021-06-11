@@ -102,7 +102,7 @@ export class GeneticWrapper {
             }
 
             return this.genetic
-                .best(this.options.best)
+                .best(this.options.best || 30)
                 .reverse()
                 .map((config) => ({ config, stats: this.configLookup.get(config) }));
 

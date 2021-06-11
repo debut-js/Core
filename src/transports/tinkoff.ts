@@ -47,7 +47,7 @@ export class TinkoffTransport implements BaseTransport {
     private instruments: Map<string, Instrument> = new Map();
 
     constructor() {
-        let { token, proxyPort } = cli.getArgs<TinkoffTransportArgs>();
+        let { token = 'tinkoff', proxyPort } = cli.getArgs<TinkoffTransportArgs>();
         const tokens = cli.getTokens();
 
         proxyPort = proxyPort && Number(proxyPort);
