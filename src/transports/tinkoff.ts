@@ -110,10 +110,10 @@ export class TinkoffTransport implements BaseTransport {
     }
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
-        const { figi, type, lots, sandbox } = order;
+        const { figi, type, lots, sandbox, learning } = order;
         let retry = 0;
 
-        if (sandbox) {
+        if (sandbox || learning) {
             return this.placeSandboxOrder(order);
         }
 
