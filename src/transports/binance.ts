@@ -56,7 +56,7 @@ export class BinanceTransport implements BaseTransport {
 
     constructor() {
         const tokens = cli.getTokens();
-        let { btoken, bsecret } = cli.getArgs<BinanceTransportArgs>();
+        let { btoken = 'binance', bsecret = 'binanceSecret' } = cli.getArgs<BinanceTransportArgs>();
 
         btoken = tokens[btoken];
         bsecret = tokens[bsecret];
