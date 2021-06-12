@@ -4,7 +4,6 @@ import {
     PluginCtx,
     PluginInterface,
     SyncHooks,
-    HookArguments,
     SkippingHooks,
     AsyncHooks,
     PluginHook,
