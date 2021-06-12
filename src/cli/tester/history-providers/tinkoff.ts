@@ -18,17 +18,50 @@ export async function getHistoryIntervalTinkoff({
     interval,
 }: HistoryIntervalOptions): Promise<Candle[]> {
     const { figi } = await api.searchOne({ ticker });
+    const filterFrom = start;
+    const filterTo = end;
 
-    const candles = await api
-        .candlesGet({
-            figi,
-            from: date.toIsoString(start),
-            to: date.toIsoString(end),
-            interval: convertTimeFrame(interval),
-        })
-        .then((data) => data.candles);
+    start = ~~(start / 86400000) * 86400000 - 180 * 60 * 1000;
+    end = ~~(end / 86400000) * 86400000 - 180 * 60 * 1000;
 
-    return candles.map(transformTinkoffCandle);
+    const reqs = [];
+    let tries = 0;
+    let from = start;
+    let to = from;
+    let chunkStart: number;
+    let result: Candle[] = [];
+
+    while (to <= end) {
+        try {
+            to = from + 86400 * 1000;
+
+            if (!chunkStart) {
+                chunkStart = from;
+            }
+
+            let promise: Promise<Candle[]> = requestDay(from, to, figi, ticker, interval);
+
+            reqs.push(promise);
+
+            if (reqs.length === 50 || to >= end) {
+                const data = await collectCandles(reqs);
+                result = result.concat(data);
+
+                reqs.length = 0;
+                tries = 0;
+                chunkStart = to;
+            }
+
+            from = to;
+        } catch (e) {
+            tries++;
+            reqs.length = 0;
+            from = chunkStart;
+            await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
+        }
+    }
+
+    return result.filter((candle) => candle.time >= filterFrom && candle.time <= filterTo);
 }
 
 export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
