@@ -110,6 +110,8 @@ export class BinanceTransport implements BaseTransport {
         const unsubscribe = this.api.ws.candles(ticker, convertTimeFrame(interval), this.handlerAdapter(handler));
 
         return () => {
+            this.instruments.delete(ticker);
+
             unsubscribe({
                 delay: 0,
                 fastClose: true,
@@ -214,7 +216,9 @@ export class BinanceTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                return this.placeOrder(order);
+                if (this.instruments.has(ticker)) {
+                    return this.placeOrder(order);
+                }
             }
 
             debug.logDebug('retry failure with order', order);

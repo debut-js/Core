@@ -103,7 +103,10 @@ export class TinkoffTransport implements BaseTransport {
                 handler(transformTinkoffCandle(tick));
             });
 
-            return unsubscribe;
+            return () => {
+                this.instruments.delete(ticker);
+                unsubscribe();
+            };
         } catch (e) {
             debug.logDebug(e);
         }
@@ -148,7 +151,9 @@ export class TinkoffTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                return this.placeOrder(order);
+                if (this.instruments.has(order.ticker)) {
+                    return this.placeOrder(order);
+                }
             }
 
             debug.logDebug(' retry failure with order', order);
