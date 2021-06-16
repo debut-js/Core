@@ -14,6 +14,9 @@ import Binance, {
     ExchangeInfo,
     NewOrder,
     Order,
+    OrderSide,
+    OrderType as BinanceOrderType,
+    SideEffectType,
     SymbolLotSizeFilter,
 } from 'binance-api-node';
 
@@ -131,17 +134,17 @@ export class BinanceTransport implements BaseTransport {
         try {
             const payload: NewOrder = {
                 quantity: String(requestedLots),
-                side: type === OrderType.BUY ? 'BUY' : 'SELL',
+                side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
                 symbol: ticker,
-                type: 'MARKET',
+                type: BinanceOrderType.MARKET,
             };
 
             if (order.margin && order.close) {
-                payload.sideEffectType = 'AUTO_REPAY';
+                payload.sideEffectType = SideEffectType.AUTO_REPAY;
             }
 
             if (order.margin && !order.close) {
-                payload.sideEffectType = 'MARGIN_BUY';
+                payload.sideEffectType = SideEffectType.MARGIN_BUY;
             }
 
             let res: Order;
