@@ -111,7 +111,17 @@ export abstract class Debut implements DebutCore {
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
         const { c: price, time } = this.marketTick;
-        const { amount, lotsMultiplier = 1, equityLevel = 1, sandbox, currency, interval, broker, margin } = this.opts;
+        const {
+            amount,
+            lotsMultiplier = 1,
+            equityLevel = 1,
+            sandbox,
+            currency,
+            interval,
+            broker,
+            margin,
+            futures,
+        } = this.opts;
         const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, ticker);
@@ -134,6 +144,7 @@ export abstract class Debut implements DebutCore {
                 learning: this.learning,
                 time,
                 margin,
+                futures,
                 lotsMultiplier,
                 equityLevel,
             };

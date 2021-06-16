@@ -33,7 +33,7 @@
         "node-fetch": "^2.6.1"
     },
     "devDependencies": {
-        "@debut/types": "^1.0.11",
+        "@debut/types": "^1.0.12",
         "@types/benchmark": "^2.1.0",
         "@types/jest": "^26.0.23",
         "@types/node": "^15.12.2",
