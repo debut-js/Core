@@ -3,6 +3,7 @@ import { HistoryIntervalOptions, HistoryOptions } from '../history';
 import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date, file } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
+import { createProgress } from './utils';
 
 const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
@@ -76,13 +77,14 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
     const end = now.getTime() - 86400 * 1000 * gapDays;
     let from: number = new Date(end - 86400 * 1000 * days).getTime();
     let to = from;
-    let chunks = 1;
     let chunkStart: number;
     let tries = 0;
-
-    console.log(`Tinkoff history loading from ${new Date(from).toLocaleString()}...`);
-
     let result: Candle[] = [];
+    let progressValue = 0;
+
+    console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
+    const progress = createProgress();
+    progress.start(days, 0);
 
     while (to <= end) {
         try {
@@ -97,24 +99,30 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
             reqs.push(promise);
 
             if (reqs.length === 50 || to >= end) {
-                chunks++;
                 const data = await collectCandles(reqs);
                 result = result.concat(data);
 
                 reqs.length = 0;
                 tries = 0;
                 chunkStart = to;
+                progress.update((end / to) * 100);
             }
 
+            progressValue++;
+            progress.update(progressValue);
             from = to;
         } catch (e) {
             tries++;
-            chunks--; // TODO Сделать вывод % загрузки истории
+            progressValue -= reqs.length;
+            progress.update(progressValue);
             reqs.length = 0;
             from = chunkStart;
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
         }
     }
+
+    progress.update(days);
+    progress.stop();
 
     return result;
 }

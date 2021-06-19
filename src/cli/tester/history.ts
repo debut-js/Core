@@ -1,4 +1,5 @@
 import { Candle, TimeFrame } from '@debut/types';
+import { Presets, SingleBar } from 'cli-progress';
 import { getTicksFromBinance, getTicksIntervalBinance } from './history-providers/binance';
 import { getHistoryFromTinkoff, getHistoryIntervalTinkoff } from './history-providers/tinkoff';
 
