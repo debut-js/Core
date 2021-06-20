@@ -134,17 +134,17 @@ export class BinanceTransport implements BaseTransport {
         try {
             const payload: NewOrder = {
                 quantity: String(requestedLots),
-                side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
+                side: type === OrderType.BUY ? 'BUY' : 'SELL',
                 symbol: ticker,
-                type: BinanceOrderType.MARKET,
+                type: 'MARKET',
             };
 
             if (order.margin && order.close) {
-                payload.sideEffectType = SideEffectType.AUTO_REPAY;
+                payload.sideEffectType = 'AUTO_REPAY';
             }
 
             if (order.margin && !order.close) {
-                payload.sideEffectType = SideEffectType.MARGIN_BUY;
+                payload.sideEffectType = 'MARGIN_BUY';
             }
 
             let res: Order;
