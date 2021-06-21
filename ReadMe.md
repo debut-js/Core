@@ -12,9 +12,9 @@ An initial deposit of *$500 was used*
 ## Available for
 
 <p>
-    <img src="/.github/assets/alpaca.png" width="64">
-    <img src="/.github/assets/binance.png" width="64">
-    <img src="/.github/assets/tinkoff.png" width="64">
+    <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
+    <img src="/.github/assets/binance.png" alt="Binance API" width="64">
+    <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
 </p>
 
 ## Community edition
