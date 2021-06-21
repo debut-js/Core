@@ -12,16 +12,10 @@ An initial deposit of *$500 was used*
 ## Available for
 
 <p align="center">
-    <img src="/.github/assets/alpaca.png" width="150">
-    <img src="/.github/assets/binance.png" width="150">
-    <img src="/.github/assets/tinkoff.png" width="150">
+    <img src="/.github/assets/alpaca.png" width="48">
+    <img src="/.github/assets/binance.png" width="48">
+    <img src="/.github/assets/tinkoff.png" width="48">
 </p>
-
-<p align="center"> <img src="/src/strategies/spikes-grid/img/BATUSDT.png" width="800"> </p>
-
-Strategy statistics were collected based on the [plugin statistics](https://github.com/debut-js/Plugins/tree/master/packages/stats), follow the link to learn more about the meaning of some statistics.
-
-Visualization is done using the [Report plugin](https://github.com/debut-js/Plugins/tree/master/packages/report).
 
 ## Community edition
 We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
@@ -116,160 +110,8 @@ Incorrect settings can cause serious financial losses.
 To work, you need [NodeJS 14.xx/npm 7.xx](https://nodejs.org/en/) ([installation instructions](https://htmlacademy.ru/blog/boost/tools/installing-nodejs))
 
 ## [Documentation](https://debutjs.io)
-
-## Project file structure
-
-```
-| - .tokens.json - custom access tokens for working with the exchange
-| - schema.json - description of the location of the startup files
-| - public/- folder for finder reports (created when finder starts)
-| - src/
-    | - strategies/
-        | - strategy1/- strategies directory
-            | - bot.ts - Strategy implementation
-            | - meta.ts - Meta data, for launching and for optimization
-            | - cfgs.ts - Configurations, for launching in tester and genetic
-        | - strategy2/
-        ...
-
-```
-
 # Installation and configuration
 
-### Obtaining API tokens
-
-[Binance instructions](https://www.binance.com/ru/support/faq/360002502072)
-
-[Tinkoff instructions](https://tinkoffcreditsystems.github.io/invest-openapi/auth)
-
-### Installing tokens
-To work, you need to create a .tokens.json file, add a token to it for work.
-
-For Tinkoff:
-
-```json
-{
-    "tinkoff":" YOU_TOKEN"
-}
-```
-
-For Binance:
-```json
-{
-    "binance": "YOU_TOKEN",
-    "binanceSecret": "YOU_SECRET
-}
-```
-
-You can use any field name for the token, for more details see the [documentation on token settings]() section.
-
-## Installing npm packages
-To install packages, run:
 ```bash
-npm install
+npm i @debut/community-core
 ```
-
-## Build the project
-```bash
-npm run compile
-```
-
-*It is recommended to build before each test run*
-
-` npm run compile && npm run ... `
-
-## Start testing on historical data
-Historical data will be loaded automatically at startup All loaded data is saved in the `history` folder in the root of the project, then reused.
-
-**Before starting, make sure:**
-* The `cfgs.ts` file contains the ticker you need
-* To get history in the` .tokens.json file `a token may be required
-* The history of a stock or token exists in the requested number of days
-
-To start, run the command:
-```bash
-npm run testing -- --bot=FTBot --ticker=CRVUSDT --days=200 --gap=20
-```
-
-To view the test results in a browser, execute
-```bash
-npm run serve
-```
-
-The results will be available for viewing on `http://localhost: 5000/`
-
-You can read more about the test run parameters in the [documentation](https://debutjs.io/ru/#/)
-
-## Run genetic optimization
-
-Run the command:
-
-```bash
-npm run genetic -- --bot=FTBot --ticker=CRVUSDT --days=200 --gap=30 --gen=12 --pop=2000 --log
-```
-
-More details about the launch parameters of the genetics can be found in the [documentation](https://debutjs.io/)
-
-After starting with the --log parameter, the geneticist will output data to the console
-
-```bash
-Binance history loading from Wed Nov 18 2020 03:00:00 GMT + 0300 (Moscow Standard Time) ...
-
------ Genetic Start with 17314 candles -----
-
-Generation: 0
-Generation time: 5.15 s
-Stats: {
-   population: 100,
-   maximum: 20.8,
-   minimum: -1.24,
-   mean: 2.5174,
-   stdev: 3.8101996325652054
-}
-Generation: 1
-...
-```
-
-## Run genetic optimization with tickers/tokens selection
-Run the command:
-```bash
-npm run finder -- --bot=FTBot --ticker=CRVUSDT --days=200 --gap=30 --gen=12 --pop=2000 --log
-```
-Use the `--crypt` option to take crypto pairs from the`./Crypt.json` file (By default, there are actual Binance cross-margin pairs)
-
-By default, a set of stock tickers is used for streaming optimization from the file `stocks.json`
-
-You can read more about the parameters for launching streaming genetics in the [documentation](https://debutjs.io/)
-
-## Starting a strategy
-
-Install any process manager for NodeJS, for example PM2,,,
-
-```bash
-npm install -g pm2
-```
-
-Execute the launch command, the path to the strategy launch file in the `./Out` directory.
-An example of such a file can be found here `/src/bootstrap.ts`
-
-``` bash
-pm2 start ./out/bootstrap.js
-```
-
-To customize the token name in the `.tokens.json` file, you can also pass the launch parameter in the file `.tokens.json` write a token in this format:` {"tinkoffCusotm": "YOU_API_TOKEN"} `
-
-```bash
-pm2 start ./out/bootstrap.js -- --token=tinkoffCustom
-```
-
-For Binance, parameters launch, you can pass 2: `--btoken=...` `--bsecret=...` if you need to change the name of tokens.
-
-Further, for operation and monitoring, you can use the command set `pm2``
-
-pm2 list` - a list of active processes
-
-`pm2 delete $ pid` - stop a process
-
-`pm2 log` - to view the logs of running processes
-
-and other commands, which can be found in the documentation of the process manager
