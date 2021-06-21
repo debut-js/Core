@@ -11,10 +11,10 @@ An initial deposit of *$500 was used*
 
 ## Available for
 
-<p align="center">
-    <img src="/.github/assets/alpaca.png" width="48">
-    <img src="/.github/assets/binance.png" width="48">
-    <img src="/.github/assets/tinkoff.png" width="48">
+<p>
+    <img src="/.github/assets/alpaca.png" width="64">
+    <img src="/.github/assets/binance.png" width="64">
+    <img src="/.github/assets/tinkoff.png" width="64">
 </p>
 
 ## Community edition
