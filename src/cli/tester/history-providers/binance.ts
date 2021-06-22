@@ -2,6 +2,7 @@ import { promise, file, date } from '@debut/plugin-utils';
 import { TimeFrame, Candle } from '@debut/types';
 import { convertTimeFrame } from '../../../transports/binance';
 import { HistoryOptions, HistoryIntervalOptions } from '../history';
+import { createProgress } from './utils';
 
 const DAY = 86400000;
 export async function getHistoryIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
@@ -22,8 +23,11 @@ export async function getHistoryFromBinance(options: HistoryOptions): Promise<Ca
     let to = from;
     let chunkStart: number;
     let tries = 0;
+    let progressValue = 0;
 
-    console.log(`Binance history loading from ${new Date(from).toString()}...`);
+    console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
+    const progress = createProgress();
+    progress.start(days, 0);
     let result: Candle[] = [];
 
     while (to <= end) {
@@ -45,15 +49,22 @@ export async function getHistoryFromBinance(options: HistoryOptions): Promise<Ca
                 chunkStart = to;
             }
 
+            progressValue++;
+            progress.update(progressValue);
             from = to;
         } catch (e) {
             tries++;
+            progressValue -= reqs.length;
             reqs.length = 0;
             from = chunkStart;
+            progress.update(progressValue);
 
             await promise.sleep(Math.pow(2, tries) * 10_000);
         }
     }
+
+    progress.update(days);
+    progress.stop();
 
     return [...result];
 }
