@@ -2,12 +2,8 @@ import { HistoryIntervalOptions, HistoryOptions } from '../history';
 import { cli, date, file } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
 import { createProgress } from './utils';
-import { AlpacaClient, Bar } from '@master-chief/alpaca';
-
-type AlpacaTransportArgs = {
-    atoken: string;
-    asecret: string;
-};
+import { AlpacaClient } from '@master-chief/alpaca';
+import { transformAlpacaCandle, convertTimeFrame, AlpacaTransportArgs } from '../../../transports/alpaca';
 
 const DAY = 86400000;
 const tokens = cli.getTokens();
@@ -197,31 +193,4 @@ async function requestDay(from: number, to: number, ticker: string, interval: Ti
     }
 
     return result;
-}
-
-function convertTimeFrame(timeframe: TimeFrame) {
-    switch (timeframe) {
-        case '1min':
-            return '1Min';
-        case '1h':
-            return '1Hour';
-        case 'day':
-            return '1Day';
-    }
-
-    throw `Alpaca integration does not support ${timeframe} timeframe`;
-}
-
-function transformAlpacaCandle(bar: Bar): Candle {
-    const rawBar = bar.raw();
-    const time = Date.parse(rawBar.t);
-
-    return {
-        o: rawBar.o,
-        h: rawBar.h,
-        l: rawBar.l,
-        c: rawBar.c,
-        v: rawBar.v,
-        time,
-    };
 }
