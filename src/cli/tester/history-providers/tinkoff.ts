@@ -9,8 +9,8 @@ const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
 const apiURL = 'https://api-invest.tinkoff.ru/openapi';
 const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
-const now = new Date();
 const api = new OpenAPI({ apiURL, secretToken: token, socketURL });
+const DAY = 86400000;
 
 export async function getHistoryIntervalTinkoff({
     ticker,
@@ -22,8 +22,8 @@ export async function getHistoryIntervalTinkoff({
     const filterFrom = start;
     const filterTo = end;
 
-    start = ~~(start / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
-    end = ~~(end / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
+    start = ~~(start / DAY) * DAY;
+    end = ~~(end / DAY) * DAY;
 
     const reqs = [];
     let tries = 0;
@@ -34,15 +34,13 @@ export async function getHistoryIntervalTinkoff({
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            let promise: Promise<Candle[]> = requestDay(from, to, figi, ticker, interval);
-
-            reqs.push(promise);
+            reqs.push(requestDay(from, Math.min(to, end), figi, ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -68,21 +66,16 @@ export async function getHistoryIntervalTinkoff({
 export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
     const reqs = [];
     const { figi } = await api.searchOne({ ticker });
+    const now = new Date();
+    const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
-    now.setMinutes(0);
-    now.setHours(0);
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-
-    const end = now.getTime() - now.getTimezoneOffset() * 60 * 1000 - 86400000 * gapDays;
-    let from: number = end - 86400000 * days;
+    let end = stamp - DAY * gapDays;
+    let from = ~~((end - DAY * days) / DAY) * DAY;
     let to = from;
     let chunkStart: number;
     let tries = 0;
     let result: Candle[] = [];
     let progressValue = 0;
-
-    console.log(from, end);
 
     console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
     const progress = createProgress();
@@ -90,15 +83,13 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            const promise: Promise<Candle[]> = requestDay(from, to, figi, ticker, interval);
-
-            reqs.push(promise);
+            reqs.push(requestDay(from, Math.min(to, end), figi, ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);

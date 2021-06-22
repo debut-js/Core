@@ -3,6 +3,7 @@ import { TimeFrame, Candle } from '@debut/types';
 import { convertTimeFrame } from '../../../transports/binance';
 import { HistoryOptions, HistoryIntervalOptions } from '../history';
 
+const DAY = 86400000;
 export async function getHistoryIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
     const frameMin = convertTimeFrame(interval);
     const url = `https://api.binance.com/api/v1/klines?symbol=${ticker}&interval=${frameMin}&startTime=${start}&endTime=${end}&limit=720`;
@@ -12,15 +13,12 @@ export async function getHistoryIntervalBinance({ interval, ticker, start, end }
 
 export async function getHistoryFromBinance(options: HistoryOptions): Promise<Candle[]> {
     const { interval, ticker, days, gapDays } = options;
-    const date = new Date();
     const reqs = [];
-    date.setMinutes(0);
-    date.setHours(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
+    const now = new Date();
+    const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
-    const end = date.getTime() - date.getTimezoneOffset() * 60 * 1000 - 86400 * 1000 * gapDays;
-    let from: number = new Date(end - 86400 * 1000 * days).getTime();
+    let end = stamp - DAY * gapDays;
+    let from = ~~((end - DAY * days) / DAY) * DAY;
     let to = from;
     let chunkStart: number;
     let tries = 0;
@@ -30,14 +28,13 @@ export async function getHistoryFromBinance(options: HistoryOptions): Promise<Ca
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            // -1000 because range is [from, to) (including from, excluding to), from : 00:00 to 23:59
-            reqs.push(requestDay(from, to - 1000, ticker, interval));
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);

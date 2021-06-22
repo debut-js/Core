@@ -9,12 +9,11 @@ type AlpacaTransportArgs = {
     asecret: string;
 };
 
+const DAY = 86400000;
 const tokens = cli.getTokens();
 const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
 const key = tokens[atoken];
 const secret = tokens[asecret];
-
-const now = new Date();
 const alpaca = new AlpacaClient({ credentials: { key, secret } });
 
 export async function getHistoryIntervalAlpaca({
@@ -26,8 +25,8 @@ export async function getHistoryIntervalAlpaca({
     const filterFrom = start;
     const filterTo = end;
 
-    start = ~~(start / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
-    end = ~~(end / 86400000) * 86400000;
+    start = ~~(start / DAY) * DAY;
+    end = ~~(end / DAY) * DAY;
 
     const reqs = [];
     let tries = 0;
@@ -38,15 +37,13 @@ export async function getHistoryIntervalAlpaca({
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            let promise: Promise<Candle[]> = requestDay(from, to, ticker, interval);
-
-            reqs.push(promise);
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -71,14 +68,12 @@ export async function getHistoryIntervalAlpaca({
 
 export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: HistoryOptions) {
     const reqs = [];
+    const fifteenMin = 900100; // 15 min + 100 ms
+    const now = new Date();
+    const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
-    now.setMinutes(0);
-    now.setHours(0);
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-
-    let end = now.getTime() - now.getTimezoneOffset() * 60 * 1000 - 86400000 * gapDays;
-    let from: number = end - 86400000 * days;
+    let end = stamp - DAY * gapDays;
+    let from = ~~((end - DAY * days) / DAY) * DAY;
     let to = from;
     let chunkStart: number;
     let tries = 0;
@@ -89,7 +84,7 @@ export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: 
     // ltes remove 15 min from end, if gapDays is 0
     // and try to get last 15 min in different request as is posiible optional
     if (!gapDays) {
-        end -= 900000;
+        end -= fifteenMin;
     }
 
     console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
@@ -98,15 +93,14 @@ export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: 
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            const promise: Promise<Candle[]> = requestDay(from, to, ticker, interval);
-
-            reqs.push(promise);
+            // console.log(from, Math.min(to, end));
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -134,6 +128,15 @@ export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: 
 
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
         }
+    }
+
+    // Premium zone
+    if (!gapDays) {
+        try {
+            const req = requestDay(end, end + fifteenMin, ticker, interval);
+            const data = await collectCandles([req]);
+            result = result.concat(data);
+        } catch (e) {}
     }
 
     progress.update(days);
