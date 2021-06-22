@@ -1,10 +1,11 @@
 import { Candle, TimeFrame } from '@debut/types';
 import { Presets, SingleBar } from 'cli-progress';
-import { getTicksFromBinance, getTicksIntervalBinance } from './history-providers/binance';
+import { getHistoryFromAlpaca, getHistoryIntervalAlpaca } from './history-providers/alpaca';
+import { getHistoryFromBinance, getHistoryIntervalBinance } from './history-providers/binance';
 import { getHistoryFromTinkoff, getHistoryIntervalTinkoff } from './history-providers/tinkoff';
 
 export interface HistoryOptions {
-    broker: 'tinkoff' | 'binance';
+    broker: 'tinkoff' | 'binance' | 'alpaca';
     ticker: string;
     days: number;
     interval: TimeFrame;
@@ -24,7 +25,9 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
         case 'tinkoff':
             return getHistoryFromTinkoff(options);
         case 'binance':
-            return getTicksFromBinance(options);
+            return getHistoryFromBinance(options);
+        case 'alpaca':
+            return getHistoryFromAlpaca(options);
     }
 }
 
@@ -33,6 +36,8 @@ export async function getHistoryInterval(options: HistoryIntervalOptions) {
         case 'tinkoff':
             return getHistoryIntervalTinkoff(options);
         case 'binance':
-            return getTicksIntervalBinance(options);
+            return getHistoryIntervalBinance(options);
+        case 'alpaca':
+            return getHistoryIntervalAlpaca(options);
     }
 }

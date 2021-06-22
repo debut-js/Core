@@ -26,6 +26,22 @@ export abstract class Debut implements DebutCore {
     private marketTick: Candle;
     private pluginDriver: PluginDriver;
     private learning: boolean;
+    // private hiFrames
+
+    // is Hour Start stamp % 3600000 === 0
+    // that mean the candle is first on H1 frame
+    // H4 stamp % 3600000 * 4 equal stamp % 14400000 === 0
+    // H3 stamp % 3600000 * 3 etc...
+    // D1 stamp % 3600000 * 24
+    // onH1Candle(candle)
+    // onH2Candle(candle)
+    // onH4Candle
+    // onDayCandle
+
+    // vs
+
+    // this.plugins.upperFrames.setH1Callback(() => {})
+    // this.plugins
 
     /**
      * Конструктор

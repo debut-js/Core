@@ -1,24 +1,23 @@
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
-// import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date, file } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
 import { createProgress } from './utils';
 import { AlpacaClient, Bar } from '@master-chief/alpaca';
 
-type TinkoffTransportArgs = {
+type AlpacaTransportArgs = {
     atoken: string;
     asecret: string;
 };
 
 const tokens = cli.getTokens();
-const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<TinkoffTransportArgs>();
+const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
 const key = tokens[atoken];
 const secret = tokens[asecret];
 
 const now = new Date();
 const alpaca = new AlpacaClient({ credentials: { key, secret } });
 
-export async function getHistoryIntervalTinkoff({
+export async function getHistoryIntervalAlpaca({
     ticker,
     start,
     end,
@@ -27,8 +26,8 @@ export async function getHistoryIntervalTinkoff({
     const filterFrom = start;
     const filterTo = end;
 
-    start = ~~(start / 86400000) * 86400000 - 180 * 60 * 1000;
-    end = ~~(end / 86400000) * 86400000 - 180 * 60 * 1000;
+    start = ~~(start / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
+    end = ~~(end / 86400000) * 86400000;
 
     const reqs = [];
     let tries = 0;
@@ -70,7 +69,7 @@ export async function getHistoryIntervalTinkoff({
     return result.filter((candle) => candle.time >= filterFrom && candle.time <= filterTo);
 }
 
-export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
+export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: HistoryOptions) {
     const reqs = [];
 
     now.setMinutes(0);
@@ -78,13 +77,20 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
     now.setSeconds(0);
     now.setMilliseconds(0);
 
-    const end = now.getTime() - 86400 * 1000 * gapDays;
-    let from: number = new Date(end - 86400 * 1000 * days).getTime();
+    let end = now.getTime() - now.getTimezoneOffset() * 60 * 1000 - 86400000 * gapDays;
+    let from: number = end - 86400000 * days;
     let to = from;
     let chunkStart: number;
     let tries = 0;
     let result: Candle[] = [];
     let progressValue = 0;
+
+    // alpaca premiun only has access to last 15min
+    // ltes remove 15 min from end, if gapDays is 0
+    // and try to get last 15 min in different request as is posiible optional
+    if (!gapDays) {
+        end -= 900000;
+    }
 
     console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
     const progress = createProgress();
@@ -109,7 +115,6 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
                 reqs.length = 0;
                 tries = 0;
                 chunkStart = to;
-                progress.update((end / to) * 100);
             }
 
             progressValue++;
@@ -117,10 +122,16 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
             from = to;
         } catch (e) {
             tries++;
-            progressValue -= reqs.length;
+            progressValue -= reqs.length - 1;
             progress.update(progressValue);
             reqs.length = 0;
             from = chunkStart;
+
+            if (e.code || !e.code) {
+                console.log(e.message);
+                throw e;
+            }
+
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
         }
     }
@@ -137,7 +148,7 @@ function saveDay(path: string, data: Candle[]) {
 }
 
 function getPath(ticker: string, interval: TimeFrame, from: number, to: number) {
-    return `history/tinkoff/${ticker}/${interval}/${from / 100000}-${to / 100000}.txt`;
+    return `history/alpaca/${ticker}/${interval}/${from / 100000}-${to / 100000}.txt`;
 }
 
 async function collectCandles(reqs: Array<Promise<Candle[]>>) {
@@ -177,7 +188,6 @@ async function requestDay(from: number, to: number, ticker: string, interval: Ti
     });
 
     const result = candles.bars.map(transformAlpacaCandle);
-    // const result = candles.map(transformTinkoffCandle);
 
     if (!date.isSameDay(new Date(), new Date(from))) {
         saveDay(path, result);
@@ -201,14 +211,14 @@ function convertTimeFrame(timeframe: TimeFrame) {
 
 function transformAlpacaCandle(bar: Bar): Candle {
     const rawBar = bar.raw();
+    const time = Date.parse(rawBar.t);
 
-    console.log(rawBar);
     return {
         o: rawBar.o,
         h: rawBar.h,
         l: rawBar.l,
         c: rawBar.c,
         v: rawBar.v,
-        time: Number(rawBar.t),
+        time,
     };
 }

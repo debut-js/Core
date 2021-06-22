@@ -22,8 +22,8 @@ export async function getHistoryIntervalTinkoff({
     const filterFrom = start;
     const filterTo = end;
 
-    start = ~~(start / 86400000) * 86400000 - 180 * 60 * 1000;
-    end = ~~(end / 86400000) * 86400000 - 180 * 60 * 1000;
+    start = ~~(start / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
+    end = ~~(end / 86400000) * 86400000 - now.getTimezoneOffset() * 60 * 1000;
 
     const reqs = [];
     let tries = 0;
@@ -74,13 +74,15 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
     now.setSeconds(0);
     now.setMilliseconds(0);
 
-    const end = now.getTime() - 86400 * 1000 * gapDays;
-    let from: number = new Date(end - 86400 * 1000 * days).getTime();
+    const end = now.getTime() - now.getTimezoneOffset() * 60 * 1000 - 86400000 * gapDays;
+    let from: number = end - 86400000 * days;
     let to = from;
     let chunkStart: number;
     let tries = 0;
     let result: Candle[] = [];
     let progressValue = 0;
+
+    console.log(from, end);
 
     console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
     const progress = createProgress();
@@ -105,7 +107,6 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
                 reqs.length = 0;
                 tries = 0;
                 chunkStart = to;
-                progress.update((end / to) * 100);
             }
 
             progressValue++;

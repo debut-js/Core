@@ -3,14 +3,14 @@ import { TimeFrame, Candle } from '@debut/types';
 import { convertTimeFrame } from '../../../transports/binance';
 import { HistoryOptions, HistoryIntervalOptions } from '../history';
 
-export async function getTicksIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
+export async function getHistoryIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
     const frameMin = convertTimeFrame(interval);
     const url = `https://api.binance.com/api/v1/klines?symbol=${ticker}&interval=${frameMin}&startTime=${start}&endTime=${end}&limit=720`;
     const result = await fetch(url).then((data) => data.json());
     return convertBinanceTicks(result);
 }
 
-export async function getTicksFromBinance(options: HistoryOptions): Promise<Candle[]> {
+export async function getHistoryFromBinance(options: HistoryOptions): Promise<Candle[]> {
     const { interval, ticker, days, gapDays } = options;
     const date = new Date();
     const reqs = [];
