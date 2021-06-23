@@ -137,7 +137,7 @@ export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: 
     // Premium zone
     if (!gapDays) {
         try {
-            const req = requestDay(end, end + fifteenMin, ticker, interval);
+            const req = requestDay(end - 1000, end + fifteenMin, ticker, interval);
             const data = await collectCandles([req]);
             result = result.concat(data);
         } catch (e) {}
