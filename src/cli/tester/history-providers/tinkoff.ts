@@ -27,7 +27,7 @@ export async function getHistoryIntervalTinkoff({
     end,
     interval,
 }: HistoryIntervalOptions): Promise<Candle[]> {
-    const { figi } = await api.searchOne({ ticker });
+    const { figi } = await getClient().searchOne({ ticker });
     const filterFrom = start;
     const filterTo = end;
 
