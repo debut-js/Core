@@ -73,10 +73,8 @@ export class AlpacaTransport implements BaseTransport {
         });
 
         this.stream.once('authenticated', () => {
-            console.log('AUTHED!');
+            this.stream.on('error', (error) => console.warn(error));
         });
-
-        this.stream.on('error', (error) => console.warn(error));
     }
 
     public async getInstrument(ticker: string) {
@@ -85,12 +83,29 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
+        const { dailyBar, latestQuote, prevDailyBar } = await this.api.getSnapshot({ symbol: ticker });
+        // known prices for pip size detection
+        const prices = [
+            latestQuote?.bp,
+            dailyBar?.c,
+            dailyBar?.o,
+            dailyBar?.h,
+            dailyBar?.l,
+            prevDailyBar?.o,
+            prevDailyBar?.h,
+            prevDailyBar?.l,
+            prevDailyBar?.c,
+        ].filter(Boolean);
+
+        const pipSize = prices.reduce((pipSize, price) => {
+            return Math.min(pipSize, orders.getMinIncrementValue(price));
+        }, 0);
 
         const instrument: Instrument = {
             figi: res.id,
             ticker: res.symbol,
             lot: 1, // lot is 1 always
-            pipSize: 0.01, // !FIXME: need to be calculated 0.001 or 0.01
+            pipSize,
             lotPrecision: 1, // support only integer lots format
         };
 
