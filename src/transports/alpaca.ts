@@ -97,7 +97,7 @@ export class AlpacaTransport implements BaseTransport {
             prevDailyBar?.h,
             prevDailyBar?.l,
             prevDailyBar?.c,
-        ].filter(Boolean);
+        ].filter((item) => Boolean(item) && parseInt(`${item}`) !== item);
 
         const pipSize = prices.reduce((pipSize, price) => {
             return Math.min(pipSize, orders.getMinIncrementValue(price));
@@ -112,7 +112,7 @@ export class AlpacaTransport implements BaseTransport {
         };
 
         this.instruments.set(ticker, instrument);
-        console.log(instrument);
+
         return instrument;
     }
 
@@ -121,7 +121,7 @@ export class AlpacaTransport implements BaseTransport {
             const intervalTime = date.intervalToMs(interval);
             let startTime: number = ~~(Date.now() / intervalTime) * intervalTime;
             let endTime: number = startTime + intervalTime;
-            let candle: Candle = { o: 0, h: 0, l: 0, c: 0, v: 0, time: startTime };
+            let candle: Candle = { o: 0, h: -Infinity, l: Infinity, c: 0, v: 0, time: startTime };
 
             const listener = (update: RawBar | RawQuote) => {
                 if ('v' in update) {
@@ -132,7 +132,7 @@ export class AlpacaTransport implements BaseTransport {
                 } else {
                     const time = Date.parse(update.t);
 
-                    if (time < endTime) {
+                    if (time < endTime && candle.c !== update.bp) {
                         if (!candle.o) {
                             candle.o = update.bp;
                         }
