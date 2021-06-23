@@ -38,6 +38,8 @@ export function isNotSupportedTimeframe(timeframe: TimeFrame) {
     }
 }
 
+const goodStatus = ['new', 'accepted'];
+
 export function transformAlpacaCandle(bar: Bar | RawBar): Candle {
     const rawBar = 'raw' in bar ? bar.raw() : bar;
     const time = Date.parse(rawBar.t);
@@ -118,7 +120,7 @@ export class AlpacaTransport implements BaseTransport {
         try {
             const intervalTime = date.intervalToMs(interval);
             let startTime: number = ~~(Date.now() / intervalTime) * intervalTime;
-            let endTime: number = null;
+            let endTime: number = startTime + intervalTime;
             let candle: Candle = { o: 0, h: 0, l: 0, c: 0, v: 0, time: startTime };
 
             const listener = (update: RawBar | RawQuote) => {
@@ -167,68 +169,72 @@ export class AlpacaTransport implements BaseTransport {
     }
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
-        // const { figi, type, lots, sandbox, learning } = order;
-        // let retry = 0;
+        const { type, lots, sandbox, learning, ticker, currency } = order;
+        let retry = 0;
 
-        // if (sandbox || learning) {
-        //     return this.placeSandboxOrder(order);
-        // }
+        if (sandbox || learning) {
+            return this.placeSandboxOrder(order);
+        }
 
-        // try {
-        //     const operation = type === OrderType.BUY ? 'Buy' : 'Sell';
-        //     const res = await this.api.marketOrder({ figi, lots, operation });
+        try {
+            const res = await this.api.placeOrder({
+                symbol: ticker,
+                side: type === OrderType.BUY ? 'buy' : 'sell',
+                type: 'market',
+                qty: lots,
+                time_in_force: 'fok',
+            });
 
-        //     if (res.rejectReason || res.message || badStatus.includes(res.status)) {
-        //         throw res;
-        //     }
+            if (!goodStatus.includes(res.status)) {
+                throw res;
+            }
 
-        //     if (retry) {
-        //         debug.logDebug(' retry success');
-        //     }
+            if (retry) {
+                debug.logDebug(' retry success');
+            }
 
-        //     order = { ...res, ...order };
-        //     // TODO: prices hack does not working yet!
-        //     // const prices = await this.updateOrderPrices(order);
+            const executed: ExecutedOrder = {
+                ...order,
+                executedLots: res.filled_qty,
+                orderId: `${res.id}`,
+                lots,
+                commission: { currency, value: 0 },
+                price: res.filled_avg_price,
+            };
 
-        //     // order = { ...order, ...prices };
-        //     // order.time = tickTime;
+            return executed;
+        } catch (e) {
+            if (!retry || retry <= 10) {
+                debug.logDebug(' error order place \n', e);
+                retry++;
+                // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
+                // тк блокировка длится в среднем 30 минут
+                const timeout = Math.floor(
+                    math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
+                );
+                await promise.sleep(timeout);
 
-        //     return order as ExecutedOrder;
-        // } catch (e) {
-        //     if (!retry || retry <= 10) {
-        //         debug.logDebug(' error order place \n', e);
-        //         retry++;
-        //         // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
-        //         // тк блокировка длится в среднем 30 минут
-        //         const timeout = Math.floor(
-        //             math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
-        //         );
-        //         await promise.sleep(timeout);
+                if (this.instruments.has(order.ticker)) {
+                    return this.placeOrder(order);
+                }
+            }
 
-        //         if (this.instruments.has(order.ticker)) {
-        //             return this.placeOrder(order);
-        //         }
-        //     }
-
-        //     debug.logDebug(' retry failure with order', order);
-        //     throw e;
-        // }
-
-        return {} as any;
+            debug.logDebug(' retry failure with order', order);
+            throw e;
+        }
     }
 
     public async placeSandboxOrder(order: OrderOptions): Promise<ExecutedOrder> {
-        // const feeAmount = order.price * order.lots * 0.0005;
-        // const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
-        // const executed: ExecutedOrder = {
-        //     ...order,
-        //     orderId: orders.syntheticOrderId(order),
-        //     executedLots: order.lots,
-        //     commission,
-        // };
+        const feeAmount = order.price * order.lots * 0.0005;
+        const commission = { value: feeAmount, currency: order.currency };
+        const executed: ExecutedOrder = {
+            ...order,
+            orderId: orders.syntheticOrderId(order),
+            executedLots: order.lots,
+            commission,
+        };
 
-        // return executed;
-        return {} as any;
+        return executed;
     }
 
     public prepareLots(lots: number) {
