@@ -9,8 +9,17 @@ const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
 const apiURL = 'https://api-invest.tinkoff.ru/openapi';
 const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
-const api = new OpenAPI({ apiURL, secretToken: token, socketURL });
 const DAY = 86400000;
+
+let client: OpenAPI = null;
+
+function getClient() {
+    if (!client) {
+        client = new OpenAPI({ apiURL, secretToken: token, socketURL });
+    }
+
+    return client;
+}
 
 export async function getHistoryIntervalTinkoff({
     ticker,
@@ -65,7 +74,7 @@ export async function getHistoryIntervalTinkoff({
 
 export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
     const reqs = [];
-    const { figi } = await api.searchOne({ ticker });
+    const { figi } = await getClient().searchOne({ ticker });
     const now = new Date();
     const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
@@ -169,7 +178,9 @@ async function requestDay(
         figi,
         interval: convertTimeFrame(interval),
     };
-    const candles = await api.candlesGet(payload).then((data) => data.candles);
+    const candles = await getClient()
+        .candlesGet(payload)
+        .then((data) => data.candles);
 
     const result = candles.map(transformTinkoffCandle);
 

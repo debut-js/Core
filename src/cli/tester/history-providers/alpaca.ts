@@ -10,7 +10,15 @@ const tokens = cli.getTokens();
 const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
 const key = tokens[atoken];
 const secret = tokens[asecret];
-const alpaca = new AlpacaClient({ credentials: { key, secret } });
+let client: AlpacaClient = null;
+
+function getClient() {
+    if (!client) {
+        client = new AlpacaClient({ credentials: { key, secret } });
+    }
+
+    return client;
+}
 
 export async function getHistoryIntervalAlpaca({
     ticker,
@@ -179,7 +187,7 @@ async function requestDay(from: number, to: number, ticker: string, interval: Ti
         return Promise.resolve(JSON.parse(historyFile));
     }
 
-    const candles = await alpaca.getBars({
+    const candles = await getClient().getBars({
         symbol: ticker,
         start: new Date(from),
         end: new Date(to),
