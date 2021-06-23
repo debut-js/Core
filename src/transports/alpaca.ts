@@ -101,7 +101,7 @@ export class AlpacaTransport implements BaseTransport {
 
         const pipSize = prices.reduce((pipSize, price) => {
             return Math.min(pipSize, orders.getMinIncrementValue(price));
-        }, 0);
+        }, Infinity);
 
         const instrument: Instrument = {
             figi: res.id,
@@ -112,7 +112,7 @@ export class AlpacaTransport implements BaseTransport {
         };
 
         this.instruments.set(ticker, instrument);
-
+        console.log(instrument);
         return instrument;
     }
 
