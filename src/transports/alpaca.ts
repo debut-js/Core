@@ -195,11 +195,10 @@ export class AlpacaTransport implements BaseTransport {
 
             const executed: ExecutedOrder = {
                 ...order,
-                executedLots: res.filled_qty,
+                executedLots: res.filled_qty || order.lots,
                 orderId: `${res.id}`,
-                lots,
                 commission: { currency, value: 0 },
-                price: res.filled_avg_price,
+                price: res.filled_avg_price || order.price,
             };
 
             return executed;
