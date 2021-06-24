@@ -65,11 +65,27 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 <td align="center"> ✅ </td>
 </tr>
 <tr>
-<td> **Alpaca** supports `5min`, `15min` and others Debut timeframes </td>
+<td> <b>Alpaca</b> supports `5min`, `15min` and others Debut timeframes </td>
 <td align="center"> ❌ </td>
 <td align="center"> ✅ </td>
 </tr>
 </tbody> </table>
+
+## Personal edition
+*Have no strategies from out of the box.*
+
+- Enterprise core inside!
+- Report with order screenshots and stats in to you messenger direct
+- Money management formula for strategy equity auto calculation
+- Fast genetic result analyser and viewer
+- Private chat support
+- Ready to start on VPS/VDS or cloud
+- Dashboard* [still in progress]
+
+
+## Business edition
+- Multiple tokens connection (signals for sale to you clients)
+- Legal use Debut for business applications
 
 We are streaming Enterprise-based deals live on our [telegram channel](https://t.me/debutjs)
 
