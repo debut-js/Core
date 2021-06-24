@@ -15,7 +15,7 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
     <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
     <img src="/.github/assets/binance.png" alt="Binance API" width="64">
     <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
-    <a href="https://www.patreon.com/bePatron?u=57560983"><img src="/.github/assets/buy2.png" alt="Request implementation" width="72"></a>
+    <a href="https://www.patreon.com/bePatron?u=57560983"><img src="/.github/assets/buy2.png" alt="Request implementation" width="64"></a>
 </p>
 
 ## Community edition
