@@ -15,20 +15,15 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
     <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
     <img src="/.github/assets/binance.png" alt="Binance API" width="64">
     <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
-    <img src="/.github/assets/buy2.png" alt="Request implementation" width="64">
+    <a href="https://www.patreon.com/bePatron?u=57560983"><img src="/.github/assets/buy2.png" alt="Request implementation" width="72"></a>
 </p>
 
 ## Community edition
 We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
 
-## Enterprise edition
+## Enterprise edition ($15/mo [buy now!](https://www.patreon.com/bePatron?u=57560983))
 Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development.
 
-
-<div class="_2KV-widgets-shared--patreonWidgetWrapper">
-<div class="animate-patreon-icon two-line-text">
-<a class="rk70y2-2 gnbqMP" color="primary" type="button" href="https://www.patreon.com/businessduck" role="button" target="_blank">
-<div class="rk70y2-1 dzLpJu"><div class="vvigvw-0 kERYBy" display="flex" wrap="nowrap" direction="[object Object]"><div class="gsl6rp-0 hAcloG"><span class="q0grzb-0 vUmGc"><svg viewBox="0 0 569 546" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><circle data-color="1" id="Oval" cx="362.589996" cy="204.589996" r="204.589996"></circle><rect data-color="2" id="Rectangle" x="0" y="0" width="100" height="545.799988"></rect></g></svg></span></div><div class="qwukid-0 gfYxny" width="1.5"></div><div class="button-text">Unlock access for $15/month</div></div></div></a></div></div>
 
 <table>
 <thead>
