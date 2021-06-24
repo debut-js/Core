@@ -87,16 +87,11 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 - Legal use Debut for business
 
 ## Strategy Import from TradingView ($1000 [buy now!](https://www.patreon.com/bePatron?u=57560983))
+If you need help transferring a strategy from TradingView to the Debut ecosystem. Transferring a strategy takes up to 3 business days. You can also request to create a strategy based on an article or your own formula.
 
 We are streaming Enterprise-based deals live on our [telegram channel](https://t.me/debutjs)
 
 **Find out the price by sending a request to [sales@debutjs.io](mailto:sales@debutjs.io)**
-
-**Disclaimer**
-
-- Debut does not guarantee 100% probability of making a profit. Use it at your own peril and risk, relying on your own professionalism.
-- Cryptocurrency is a global experiment, so Debut is also. That is, both can fail at any time.
-All you need to know
 
 **Remember!** Starting a bot and trading in general requires careful study of the associated risks and parameters.
 Incorrect settings can cause serious financial losses.
