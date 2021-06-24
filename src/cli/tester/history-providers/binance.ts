@@ -2,42 +2,43 @@ import { promise, file, date } from '@debut/plugin-utils';
 import { TimeFrame, Candle } from '@debut/types';
 import { convertTimeFrame } from '../../../transports/binance';
 import { HistoryOptions, HistoryIntervalOptions } from '../history';
+import { createProgress } from './utils';
 
-export async function getTicksIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
+const DAY = 86400000;
+export async function getHistoryIntervalBinance({ interval, ticker, start, end }: HistoryIntervalOptions) {
     const frameMin = convertTimeFrame(interval);
     const url = `https://api.binance.com/api/v1/klines?symbol=${ticker}&interval=${frameMin}&startTime=${start}&endTime=${end}&limit=720`;
     const result = await fetch(url).then((data) => data.json());
     return convertBinanceTicks(result);
 }
 
-export async function getTicksFromBinance(options: HistoryOptions): Promise<Candle[]> {
+export async function getHistoryFromBinance(options: HistoryOptions): Promise<Candle[]> {
     const { interval, ticker, days, gapDays } = options;
-    const date = new Date();
     const reqs = [];
-    date.setMinutes(0);
-    date.setHours(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
+    const now = new Date();
+    const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
-    const end = date.getTime() - date.getTimezoneOffset() * 60 * 1000 - 86400 * 1000 * gapDays;
-    let from: number = new Date(end - 86400 * 1000 * days).getTime();
+    let end = stamp - DAY * gapDays;
+    let from = ~~((end - DAY * days) / DAY) * DAY;
     let to = from;
     let chunkStart: number;
     let tries = 0;
+    let progressValue = 0;
 
-    console.log(`Binance history loading from ${new Date(from).toString()}...`);
+    console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
+    const progress = createProgress();
+    progress.start(days, 0);
     let result: Candle[] = [];
 
     while (to <= end) {
         try {
-            to = from + 86400 * 1000;
+            to = from + DAY;
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            // -1000 because range is [from, to) (including from, excluding to), from : 00:00 to 23:59
-            reqs.push(requestDay(from, to - 1000, ticker, interval));
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -48,15 +49,22 @@ export async function getTicksFromBinance(options: HistoryOptions): Promise<Cand
                 chunkStart = to;
             }
 
+            progressValue++;
+            progress.update(progressValue);
             from = to;
         } catch (e) {
             tries++;
+            progressValue -= reqs.length;
             reqs.length = 0;
             from = chunkStart;
+            progress.update(progressValue);
 
             await promise.sleep(Math.pow(2, tries) * 10_000);
         }
     }
+
+    progress.update(days);
+    progress.stop();
 
     return [...result];
 }

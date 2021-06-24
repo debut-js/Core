@@ -1,61 +1,112 @@
-![](https://img.shields.io/npm/v/@debut/community-core)
-![](https://img.shields.io/github/license/debut-js/Core)
-[![Chat on Telegram](https://img.shields.io/badge/Chat%20on-Telegram-brightgreen.svg)](https://t.me/joinchat/Acu2sbLIy_c0OWIy)
+# Trading Strategies Based on Debut/Community Edition
 
+Debut is an ecosystem for developing and launching trading strategies. An analogue of the well-known `ZenBot`, but with much more flexible possibilities for constructing strategies. All you need to do is come up with and describe the entry points to the market and connect the necessary [plugins](https://github.com/debut-js/Plugins) to work. Everything else is a matter of technology: **genetic algorithms** - will help you choose the most effective parameters for the strategy (period, stops, and others), **ticker selection module** - will help you find an asset suitable for the strategy (token or share), on which it will work best.
+
+Debut is based on the architecture of the core and add-on plugins that allow flexible customization of any solutions. The main goal of the entire Debut ecosystem is to simplify the process of creating and launching working trading robots on various exchanges.
+
+## Available for
+
+<p>
+    <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
+    <img src="/.github/assets/binance.png" alt="Binance API" width="64">
+    <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
 </p>
 
-# Debut ™ / Community Edition
-Debut - это экосистема для разработки и запуска торговых стратегий. Аналог известного `ZenBot`, но с гораздо более гибкими возможностями для конструирования стратегий. Все что вам нужно сделать, это придумать и описать точки входа в рынок и подключить нужные [плагины](https://github.com/debut-js/Plugins) для работы. Все остальное - дело техники: **генетические алгоритмы** - помогут подобрать самые эффективные параметры для стратегии (период, стопы, и другие), **модуль подбора тикеров** - поможет найти подходящий для стратегии актив (токен или акцию), на котором она будет работать лучше всего.
+## Community edition
+We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
 
-В основе Debut лежит архитектура ядра и надстраиваемых плагинов, позволяющих гибко кастомизировать любые решения. Оснвной целью всей экосистемы Debut, является упрощение процесса создания и запуска рабочих торговых роботов на различные биржи. На данный момент поддерживаются: **Тинькофф Инвестици** и **Binance**.
+## Enterprise edition
+Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development.
 
-Библиотека состоит из нескольких ключевых модулей
+<table>
+<thead>
+<tr>
+<th> Functionality </th>
+<th> Community </th>
+<th> Enterprise </th>
+</tr>
+</thead>
+<tbody> <tr>
+<td> Strategy Tester </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Emulation of OHLC ticks in the tester </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Search modle (finder) suitable for the strategy of assets </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> A collection of plugins from the <a href="https://github.com/debut-js/Plugins" target="_blank" rel="noopener"> collection </a> </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Basic set of ready-made trading strategies </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> M1 candlestick data for tick emulation </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Synthetic emulation of ticks in the tester (tick size no more than 0.75%) </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Risk Management System </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Work reports in <a href="https://t.me/debutjs" target="_blank" rel="noopener"> messenger </a> </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Ready solutions to run on VPS/VDS and Cloud servers </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> Technical Support </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+<tr>
+<td> System of fast subscriptions to signals by token, for signal sales </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
+</tbody> </table>
 
-- ### Транспорт
-  Отвечает за все сетевые взаимодействия. За обработку ошибок и выполнение повторных запросов при возникновении проблем с сетью или на стороне самой биржи, например, блокировка операций при резких изменениях цены на ассет на биржах MOEX лии SPBEX.
+We are streaming Enterprise-based deals live on our [telegram channel](https://t.me/debutjs)
 
-- ### Генетический оптимизатор
-  В его основе лежит модуль генетики [async-genetic](https://www.npmjs.com/package/async-genetic), который позволяет находить оптимальные параметры для различных систем (в том числе и для торговых роботов). Генетический оптимизатор позволяет гораздо более эффективно подбирать наилучшие параметры, в сравнении сравнению с простым перебором значений.
+**Find out the price by sending a request to [sales@debutjs.io](mailto:sales@debutjs.io)**
 
-- ### Бектестер
-  Позволяет проверить работу торговой системы за выбранный период. Ограничивается только количеством исторических данных на стороне брокера.
+**Disclaimer**
 
-- ### Драйвер плагинов
-  Позволяет легко внедряться в процесс работы Debut, манипулировать сделками, собирать статистику, управлять всеми этапами работы приложения.
+- Debut does not guarantee 100% probability of making a profit. Use it at your own peril and risk, relying on your own professionalism.
+- Cryptocurrency is a global experiment, so Debut is also. That is, both can fail at any time.
+All you need to know
 
-- ### Потоковые индикаторы
-  Новый подход к реализации [торговых индикаторов](https://github.com/debut-js/indicators) позволяет экономить на вычислениях, максимально переиспользовать результаты предыдущих вычислений для совершения новых расчетов. По результатам сравнения, индикаторы из экосистемы Debut в пике производительности *быстрее самых популярных конкурентов в 36 раз*.
+**Remember!** Starting a bot and trading in general requires careful study of the associated risks and parameters.
+Incorrect settings can cause serious financial losses.
 
-*Все вместе - это Ваш трейдерский Дебют!*
+## System requirements
+To work, you need [NodeJS 14.xx/npm 7.xx](https://nodejs.org/en/) ([installation instructions](https://htmlacademy.ru/blog/boost/tools/installing-nodejs))
 
-## Установка
+## [Documentation](https://debutjs.io)
+# Installation and configuration
 
 ```bash
-npm install --save @debut/community-core
+npm i @debut/community-core
 ```
-
-## [Документация](docs/)
-
-## Решение для бизнеса
-
-Вы также можете приобрести лицензию на Enterprise версию Debut.
-
-|         Функционал                  |            Community                |                              Enterprise                             |
-| ----------------------------------- | ----------------------------------- | ------------------------------------------------------------------- |
-| Тестер стратегий | ✅ | ✅ |
-| Эмуляция OHLC тиков в тестере | ✅ | ✅ |
-| Моудль поиска (finder) подходящих под стратегию активов | ✅ | ✅ |
-| Набор плагинов из [коллекции](https://github.com/debut-js/Plugins) | ✅ | ✅ |
-| Базовый набор готовых торговых стратегий | ❌ | ✅ |
-| Данные свеч м1 для эмуляция тиков | ❌ | ✅ |
-| Синтетическая эмуляция тиков в тестере (размер тика не более 0.75%) | ❌ | ✅ |
-| Система управления рисками | ❌ | ✅ |
-| Отчеты о работе в мессенджер | ❌ | ✅ |
-| Готовые решения для запуска на VPS/VDS и Cloud серверах | ❌ | ✅ |
-| Техническая поддержка | ❌ | ✅ |
-| Не ограниченое кол-во подключений TCP на Тинькофф API ([о лимитах](https://tinkoffcreditsystems.github.io/invest-openapi/marketdata/)) | ❌ | ✅ |
-
-## Узнайте цену, отправив запрос на [sales@debutjs.io](mailto:sales@debutjs.io)
-
-## Лицензия
-Лицензия Apache-2.0 запрещает коммерческое использование кодовой базы текущего репозитория

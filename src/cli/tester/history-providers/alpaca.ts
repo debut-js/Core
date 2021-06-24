@@ -1,33 +1,31 @@
-import OpenAPI from '@tinkoff/invest-openapi-js-sdk';
 import { HistoryIntervalOptions, HistoryOptions } from '../history';
-import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date, file } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
 import { createProgress } from './utils';
+import { AlpacaClient } from '@master-chief/alpaca';
+import { transformAlpacaCandle, convertTimeFrame, AlpacaTransportArgs } from '../../../transports/alpaca';
 
-const tokens = cli.getTokens();
-const token: string = tokens['tinkoff'];
-const apiURL = 'https://api-invest.tinkoff.ru/openapi';
-const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
 const DAY = 86400000;
-
-let client: OpenAPI = null;
+const tokens = cli.getTokens();
+const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
+const key = tokens[atoken];
+const secret = tokens[asecret];
+let client: AlpacaClient = null;
 
 function getClient() {
     if (!client) {
-        client = new OpenAPI({ apiURL, secretToken: token, socketURL });
+        client = new AlpacaClient({ credentials: { key, secret } });
     }
 
     return client;
 }
 
-export async function getHistoryIntervalTinkoff({
+export async function getHistoryIntervalAlpaca({
     ticker,
     start,
     end,
     interval,
 }: HistoryIntervalOptions): Promise<Candle[]> {
-    const { figi } = await getClient().searchOne({ ticker });
     const filterFrom = start;
     const filterTo = end;
 
@@ -49,7 +47,7 @@ export async function getHistoryIntervalTinkoff({
                 chunkStart = from;
             }
 
-            reqs.push(requestDay(from, Math.min(to, end), figi, ticker, interval));
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -72,9 +70,9 @@ export async function getHistoryIntervalTinkoff({
     return result.filter((candle) => candle.time >= filterFrom && candle.time <= filterTo);
 }
 
-export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }: HistoryOptions) {
+export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: HistoryOptions) {
     const reqs = [];
-    const { figi } = await getClient().searchOne({ ticker });
+    const fifteenMin = 900100; // 15 min + 100 ms
     const now = new Date();
     const stamp = gapDays ? ~~(now.getTime() / DAY) * DAY : now.getTime();
 
@@ -85,6 +83,13 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
     let tries = 0;
     let result: Candle[] = [];
     let progressValue = 0;
+
+    // alpaca premiun only has access to last 15min
+    // ltes remove 15 min from end, if gapDays is 0
+    // and try to get last 15 min in different request as is posiible optional
+    if (!gapDays) {
+        end -= fifteenMin;
+    }
 
     console.log(`History loading from ${new Date(from).toLocaleDateString()}:\n`);
     const progress = createProgress();
@@ -98,7 +103,8 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
                 chunkStart = from;
             }
 
-            reqs.push(requestDay(from, Math.min(to, end), figi, ticker, interval));
+            // console.log(from, Math.min(to, end));
+            reqs.push(requestDay(from, Math.min(to, end), ticker, interval));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -114,12 +120,27 @@ export async function getHistoryFromTinkoff({ ticker, days, interval, gapDays }:
             from = to;
         } catch (e) {
             tries++;
-            progressValue -= reqs.length;
+            progressValue -= reqs.length - 1;
             progress.update(progressValue);
             reqs.length = 0;
             from = chunkStart;
+
+            if (e.code || !e.code) {
+                console.log(e.message);
+                throw e;
+            }
+
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
         }
+    }
+
+    // Premium zone
+    if (!gapDays) {
+        try {
+            const req = requestDay(end - 1000, end + fifteenMin, ticker, interval);
+            const data = await collectCandles([req]);
+            result = result.concat(data);
+        } catch (e) {}
     }
 
     progress.update(days);
@@ -134,7 +155,7 @@ function saveDay(path: string, data: Candle[]) {
 }
 
 function getPath(ticker: string, interval: TimeFrame, from: number, to: number) {
-    return `history/tinkoff/${ticker}/${interval}/${from / 100000}-${to / 100000}.txt`;
+    return `history/alpaca/${ticker}/${interval}/${from / 100000}-${to / 100000}.txt`;
 }
 
 async function collectCandles(reqs: Array<Promise<Candle[]>>) {
@@ -153,13 +174,7 @@ async function collectCandles(reqs: Array<Promise<Candle[]>>) {
     return result;
 }
 
-async function requestDay(
-    from: number,
-    to: number,
-    figi: string,
-    ticker: string,
-    interval: TimeFrame,
-): Promise<Candle[]> {
+async function requestDay(from: number, to: number, ticker: string, interval: TimeFrame): Promise<Candle[]> {
     // Не запрашиваем историю текущего дня
     if (date.isWeekend(from)) {
         return Promise.resolve([]);
@@ -172,17 +187,14 @@ async function requestDay(
         return Promise.resolve(JSON.parse(historyFile));
     }
 
-    const payload = {
-        from: date.toIsoString(from),
-        to: date.toIsoString(to),
-        figi,
-        interval: convertTimeFrame(interval),
-    };
-    const candles = await getClient()
-        .candlesGet(payload)
-        .then((data) => data.candles);
+    const candles = await getClient().getBars({
+        symbol: ticker,
+        start: new Date(from),
+        end: new Date(to),
+        timeframe: convertTimeFrame(interval),
+    });
 
-    const result = candles.map(transformTinkoffCandle);
+    const result = candles.bars.map(transformAlpacaCandle);
 
     if (!date.isSameDay(new Date(), new Date(from))) {
         saveDay(path, result);

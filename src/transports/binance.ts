@@ -124,7 +124,7 @@ export class BinanceTransport implements BaseTransport {
     }
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
-        const { type, lots: requestedLots, sandbox, ticker, learning } = order;
+        const { type, lots: requestedLots, sandbox, ticker, learning, currency } = order;
         let retry = 0;
 
         if (sandbox || learning) {
@@ -197,7 +197,7 @@ export class BinanceTransport implements BaseTransport {
             }
 
             const feeAmount = order.price * order.lots * 0.001;
-            const commission = { value: feeAmount, currency: 'USDT' };
+            const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
                 ...order,
                 orderId: `${res.orderId}`,
@@ -231,7 +231,7 @@ export class BinanceTransport implements BaseTransport {
 
     public async placeSandboxOrder(order: OrderOptions): Promise<ExecutedOrder> {
         const feeAmount = order.price * order.lots * 0.002;
-        const commission = { value: feeAmount, currency: 'USD' };
+        const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {
             ...order,
             orderId: orders.syntheticOrderId(order),
