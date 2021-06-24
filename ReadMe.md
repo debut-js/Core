@@ -82,10 +82,11 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 - Ready to start on VPS/VDS or cloud
 - Dashboard* [still in progress]
 
-
 ## Business edition
-- Multiple tokens connection (signals for sale to you clients)
-- Legal use Debut for business applications
+- Multiple tokens for easy client connection (signals for sale to you clients)
+- Legal use Debut for business
+
+## Strategy Import from TradingView ($1000 [buy now!](https://www.patreon.com/bePatron?u=57560983))
 
 We are streaming Enterprise-based deals live on our [telegram channel](https://t.me/debutjs)
 
