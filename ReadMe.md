@@ -15,8 +15,10 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
 ## Community edition
 We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
 
-## Enterprise edition
+## Enterprise edition 15$ per month
 Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development.
+
+<a href="https://www.patreon.com/bePatron?u=57560983" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
 
 <table>
 <thead>
@@ -42,15 +44,6 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 <td align="center"> ✅ </td>
 </tr>
 <tr>
-<td> A collection of plugins from the <a href="https://github.com/debut-js/Plugins" target="_blank" rel="noopener"> collection </a> </td>
-<td align="center"> ✅ </td>
-<td align="center"> ✅ </td>
-</tr>
-<tr>
-<td> Basic set of ready-made trading strategies </td>
-<td align="center"> ✅ </td>
-<td align="center"> ✅ </td>
-</tr>
 <tr>
 <td> M1 candlestick data for tick emulation </td>
 <td align="center"> ❌ </td>
@@ -62,27 +55,12 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 <td align="center"> ✅ </td>
 </tr>
 <tr>
-<td> Risk Management System </td>
+<td> Access to major candles from working timeframe</td>
 <td align="center"> ❌ </td>
 <td align="center"> ✅ </td>
 </tr>
 <tr>
-<td> Work reports in <a href="https://t.me/debutjs" target="_blank" rel="noopener"> messenger </a> </td>
-<td align="center"> ❌ </td>
-<td align="center"> ✅ </td>
-</tr>
-<tr>
-<td> Ready solutions to run on VPS/VDS and Cloud servers </td>
-<td align="center"> ❌ </td>
-<td align="center"> ✅ </td>
-</tr>
-<tr>
-<td> Technical Support </td>
-<td align="center"> ❌ </td>
-<td align="center"> ✅ </td>
-</tr>
-<tr>
-<td> System of fast subscriptions to signals by token, for signal sales </td>
+<td> **Alpaca** supports `5min`, `15min` and others Debut timeframes </td>
 <td align="center"> ❌ </td>
 <td align="center"> ✅ </td>
 </tr>
