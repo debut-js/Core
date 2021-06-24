@@ -1,5 +1,8 @@
 
-[![Debut Enterprice Core access](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dbusinessduck%26type%3Dpledges%26suffix%3D%252Fmo%2520access%2520to%2520Enterprise%2520edition&style=flat)](https://patreon.com/businessduck)
+![npm](https://img.shields.io/npm/v/@debut/community-core)
+![npm](https://img.shields.io/npm/dm/@debut/community-core)
+![NPM](https://img.shields.io/npm/l/@debut/community-core)
+[![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dbusinessduck%26type%3Dpatrons%26suffix%3DEnterprise%2520users&style=flat)](https://patreon.com/businessduck)
 # Trading Strategies Based on Debut/Community Edition
 
 Debut is an ecosystem for developing and launching trading strategies. An analogue of the well-known `ZenBot`, but with much more flexible possibilities for constructing strategies. All you need to do is come up with and describe the entry points to the market and connect the necessary [plugins](https://github.com/debut-js/Plugins) to work. Everything else is a matter of technology: **genetic algorithms** - will help you choose the most effective parameters for the strategy (period, stops, and others), **ticker selection module** - will help you find an asset suitable for the strategy (token or share), on which it will work best.
@@ -12,6 +15,7 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
     <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
     <img src="/.github/assets/binance.png" alt="Binance API" width="64">
     <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
+    <img src="/.github/assets/buy.png" alt="Request implementation" width="64">
 </p>
 
 ## Community edition
