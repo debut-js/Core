@@ -18,7 +18,9 @@ We believe in the power of the community! That is why we decided to publish the 
 ## Enterprise edition 15$ per month
 Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development.
 
-<a href="https://www.patreon.com/bePatron?u=57560983" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
+<a href="https://www.patreon.com/bePatron?u=57560983" data-patreon-widget-type="become-patron-button">
+Become a Patron!
+</a>
 
 <table>
 <thead>
