@@ -27,11 +27,6 @@ export abstract class Debut implements DebutCore {
     private pluginDriver: PluginDriver;
     private learning: boolean;
 
-    /**
-     * Конструктор
-     * @param transport - транспорт для работы с сетью
-     * @param opts - настройки
-     */
     constructor(transport: BaseTransport, opts: DebutOptions) {
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
@@ -39,21 +34,21 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Предыдущая свеча
+     * Prev candle hot getter
      */
     get prevCandle() {
         return this.candles[1];
     }
 
     /**
-     * Закрытая свеча
+     * Current candle hot getter (current candle is on right now, and not closed yet)
      */
     get currentCandle() {
         return this.candles[0];
     }
 
     /**
-     * Регистрация плагинов
+     * Plugins initialization
      */
     public registerPlugins(plugins: PluginInterface[]) {
         this.pluginDriver.register(plugins);
@@ -62,7 +57,7 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Бот подписывается на тики по заданному инструменту
+     * Start listen ticks for current instrument
      */
     public async start() {
         await this.pluginDriver.asyncReduce<PluginHook.onStart>(PluginHook.onStart);
@@ -80,14 +75,14 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Получение имени бота по конструктору
+     * Get constructor name, for logs and other cases
      */
     public getName() {
         return this.constructor.name;
     }
 
     /**
-     * Закрыть все открытые позиции
+     * Close all current positions
      */
     public async closeAll() {
         if (!this.orders.length) {
@@ -107,7 +102,7 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Создает лимитную заявку и отмечает в логике, что есть активная заявка
+     * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
         const { c: price, time } = this.marketTick;
@@ -149,7 +144,7 @@ export abstract class Debut implements DebutCore {
                 equityLevel,
             };
 
-            // Пропуск открытия по причине запрета плагином дальнейших действий
+            // Skipping opening because the plugin prevent further actions
             const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeOpen>(
                 PluginHook.onBeforeOpen,
                 orderOptions,
@@ -173,10 +168,10 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Закрыть переданную позицию
+     * Close selected order
      */
     public async closeOrder(closing: ExecutedOrder) {
-        // Уже закрывается
+        // Already closing
         if (closing.processing) {
             return;
         }
@@ -214,7 +209,7 @@ export abstract class Debut implements DebutCore {
                 equityLevel,
             };
 
-            // Пропуск открытия по причине запрета плагином дальнейших действий
+            // Skip opening because action prevented from plugins
             const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeClose>(
                 PluginHook.onBeforeClose,
                 closeOrder,
@@ -247,9 +242,9 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Подача боту исторических данных в качестве этапа пред старта
-     * Для того чтобы бот вошел в рынок имея данные индикаторов и возможно сделки
-     * Чтобы совершить плавный переход к реальным сделкам
+     * Submitting historical data to the bot as a pre-start stage
+     * In order for the bot to enter the market of these indicators and possibly transactions
+     * To make a smooth transition to real deals
      */
     public async learn(days = 7) {
         this.instrument = await this.transport.getInstrument(this.opts.ticker);
@@ -273,8 +268,8 @@ export abstract class Debut implements DebutCore {
 
     private handler = async (tick: Candle) => {
         const change = this.marketTick && this.marketTick.time !== tick.time;
-        // Всегза реагируем на тик для определения текущей цены маркет сделок и времени
-        // Затем вызваем хуки, чтобы плагины могли закрыть по маркету
+        // We always react to a tick to determine the current price of market deals and time
+        // Then we call hooks so that plugins can close by market
         this.marketTick = tick;
 
         const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onTick>(PluginHook.onTick, tick);
@@ -283,7 +278,7 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        // Если сменилось время и был предыдущий тик, запишем последние данные тика в свечу
+        // If the time has changed and there was a previous tick, write the last tick data to the candle
         if (change && this.prevTick) {
             if (this.candles.length === 10) {
                 this.candles.pop();
