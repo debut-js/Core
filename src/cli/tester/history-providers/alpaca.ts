@@ -30,7 +30,6 @@ export async function getHistoryIntervalAlpaca({
     const filterTo = end;
 
     start = ~~(start / DAY) * DAY;
-    end = ~~(end / DAY) * DAY;
 
     const reqs = [];
     let tries = 0;
