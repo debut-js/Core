@@ -124,11 +124,6 @@ export async function getHistoryFromAlpaca({ ticker, days, interval, gapDays }: 
             reqs.length = 0;
             from = chunkStart;
 
-            if (e.code || !e.code) {
-                console.log(e.message);
-                throw e;
-            }
-
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
         }
     }
