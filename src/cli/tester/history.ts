@@ -17,6 +17,9 @@ export interface HistoryOptions {
     noProgress?: boolean;
 }
 
+/**
+ * Get history from different providers, depends on broker name in `HistoryOptions`
+ */
 export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
     let requestFn: RequestFn;
 
@@ -35,6 +38,12 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
     return createHistory(options, requestFn);
 }
 
+/**
+ * Create history data, using current provider request function.
+ * All history data will be stored in local cache file and than never been requested again.
+ * Current history day will not be cached, because its not ended yet.
+ * History validation is inside. If something is broken you will see error.
+ */
 async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     const { ticker, days, interval, gapDays, broker, noProgress = false } = options;
     const reqs = [];
