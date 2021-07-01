@@ -104,6 +104,9 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     return result;
 }
 
+/**
+ * Make a network or cache history request.
+ */
 async function createRequest(
     broker: string,
     ticker: string,
