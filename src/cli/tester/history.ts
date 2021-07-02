@@ -170,3 +170,29 @@ export function createProgress(title: string = '') {
 function roundDay(stamp: number) {
     return ~~(stamp / DAY) * DAY;
 }
+
+export function generateOHLC(candles: Candle[]) {
+    const result: Candle[] = [];
+
+    for (let i = 0; i < candles.length; i++) {
+        const candle = candles[i];
+        const volume = ~~(candle.v / 4);
+        const openTick: Candle = { ...candle, h: candle.o, l: candle.o, c: candle.o, v: volume };
+        let highTick: Candle = { ...openTick, h: candle.h, c: candle.h };
+        let lowTick: Candle = { ...highTick, l: candle.l, c: candle.l };
+        let closeTick: Candle = { ...lowTick, c: candle.c };
+        const isBullishCandle = candle.o < candle.c;
+
+        if (isBullishCandle) {
+            lowTick = { ...openTick, l: candle.l, c: candle.l };
+            highTick = { ...lowTick, h: candle.h, c: candle.h };
+            closeTick = { ...highTick, c: candle.c };
+
+            result.push(openTick, lowTick, highTick, closeTick);
+        } else {
+            result.push(openTick, highTick, lowTick, closeTick);
+        }
+    }
+
+    return result;
+}
