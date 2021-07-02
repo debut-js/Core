@@ -1,5 +1,6 @@
 import { promise, orders, math } from '@debut/plugin-utils';
 import { BaseTransport, TickHandler, Instrument, OrderOptions, ExecutedOrder, Candle } from '@debut/types';
+import { generateOHLC } from './history';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -59,17 +60,7 @@ export class TesterTransport implements BaseTransport {
         this.precision = 0;
 
         if (this.opts.ohlc) {
-            this.ticks = this.ticks.reduce((acc, tick) => {
-                const o = { c: tick.o, o: tick.o, h: tick.o, l: tick.o, time: tick.time };
-                const h = { c: tick.h, o: tick.o, h: tick.h, l: tick.o, time: tick.time };
-                const l = { c: tick.l, o: tick.o, h: tick.h, l: tick.l, time: tick.time };
-
-                if (tick.o <= tick.c) {
-                    return acc.concat(o, l, h, tick);
-                }
-
-                return acc.concat(o, h, l, tick);
-            }, []);
+            this.ticks = generateOHLC(this.ticks);
 
             console.log('OHLC Ticks is enabled, total ticks:', this.ticks.length);
         }
