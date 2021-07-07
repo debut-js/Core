@@ -280,11 +280,8 @@ export abstract class Debut implements DebutCore {
 
         // If the time has changed and there was a previous tick, write the last tick data to the candle
         if (change && prevTick) {
-            if (this.candles.length === 10) {
-                this.candles.pop();
-            }
+            this.updateCandles(prevTick);
 
-            this.candles.unshift(prevTick);
             await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
             await this.onCandle(prevTick);
             await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
@@ -292,6 +289,23 @@ export abstract class Debut implements DebutCore {
 
         await this.onTick(tick);
     };
+
+    /**
+     * Candle collection managment
+     */
+    private updateCandles(candle: Candle) {
+        if (this.candles.length === 10) {
+            this.candles.pop();
+
+            // Boost performance, exclude if
+            this.updateCandles = (candle: Candle) => {
+                this.candles.pop();
+                this.candles.unshift(candle);
+            };
+        }
+
+        this.candles.unshift(candle);
+    }
 
     protected async onOrderClosed(order: ExecutedOrder, closing: ExecutedOrder): Promise<void> {}
     protected async onOrderOpened(order: ExecutedOrder): Promise<void> {}
