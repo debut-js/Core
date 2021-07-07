@@ -33,14 +33,14 @@ export abstract class Debut implements DebutCore {
     }
 
     /**
-     * Prev candle hot getter
+     * Prev known candle hot getter
      */
     get prevCandle() {
         return this.candles[1];
     }
 
     /**
-     * Current candle hot getter (current candle is on right now, and not closed yet)
+     * Last known closed candle
      */
     get currentCandle() {
         return this.candles[0];
