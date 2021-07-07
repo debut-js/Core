@@ -1,4 +1,4 @@
-import { date, file } from '@debut/plugin-utils';
+import { date, file, promise } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
 import { SingleBar, Presets } from 'cli-progress';
 import { DebutError, ErrorEnvironment } from '../../modules/error';
@@ -94,7 +94,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
             progress?.update(progressValue);
             reqs.length = 0;
             from = chunkStart;
-            await new Promise((resolve) => setTimeout(resolve, Math.pow(2, tries) * 10_000));
+            await promise.sleep(Math.pow(2, tries) * 10_000);
         }
     }
 

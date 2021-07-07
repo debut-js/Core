@@ -22,7 +22,6 @@ export abstract class Debut implements DebutCore {
     public transport: BaseTransport;
     protected plugins: unknown;
     protected candles: Candle[] = [];
-    protected prevTick: Candle;
     private marketTick: Candle;
     private pluginDriver: PluginDriver;
     private learning: boolean;
@@ -268,29 +267,29 @@ export abstract class Debut implements DebutCore {
 
     private handler = async (tick: Candle) => {
         const change = this.marketTick && this.marketTick.time !== tick.time;
-        // We always react to a tick to determine the current price of market deals and time
-        // Then we call hooks so that plugins can close by market
-        this.marketTick = tick;
-
         const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onTick>(PluginHook.onTick, tick);
 
         if (skip) {
             return;
         }
 
+        // React to a tick to determine the current price of market deals and time
+        // Then we call hooks so that plugins can close by market
+        const prevTick = this.marketTick;
+        this.marketTick = tick;
+
         // If the time has changed and there was a previous tick, write the last tick data to the candle
-        if (change && this.prevTick) {
+        if (change && prevTick) {
             if (this.candles.length === 10) {
                 this.candles.pop();
             }
 
-            this.candles.unshift(this.prevTick);
-            await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, this.prevTick);
-            await this.onCandle(this.prevTick);
-            await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, this.prevTick);
+            this.candles.unshift(prevTick);
+            await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
+            await this.onCandle(prevTick);
+            await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
         }
 
-        this.prevTick = tick;
         await this.onTick(tick);
     };
 
