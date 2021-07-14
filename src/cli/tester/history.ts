@@ -62,15 +62,15 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     const progress = noProgress ? null : createProgress();
     progress?.start(days, 0);
 
-    while (to <= end) {
+    while (to < end) {
         try {
-            to = from + DAY;
+            to = Math.min(from + DAY, end);
 
             if (!chunkStart) {
                 chunkStart = from;
             }
 
-            reqs.push(createRequest(broker, ticker, interval, from, Math.min(to, end), requestFn));
+            reqs.push(createRequest(broker, ticker, interval, from, to, requestFn));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
