@@ -252,8 +252,6 @@ export class GeneticWrapper {
         const atotal = ascore.main + ascore.before || 0 * 1.5 + ascore.after || 0 * 2;
         const btotal = bscore.main + bscore.before || 0 * 1.5 + bscore.after || 0 * 2;
 
-        console.log(atotal, btotal);
-
         return atotal >= btotal;
     };
 }
