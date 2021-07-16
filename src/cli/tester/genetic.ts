@@ -5,21 +5,27 @@ import {
     GenticWrapperOptions,
     WorkingEnv,
     SchemaDescriptor,
-    SchemaBoolDescriptor,
-    SchemaNumberDescriptor,
+    TestingPhase,
+    DebutCore,
 } from '@debut/types';
-import { Genetic, GeneticOptions, Select } from 'async-genetic';
+import { Genetic, GeneticOptions, Phenotype, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
+
+interface ScoreData {
+    before: number;
+    after: number;
+    main: number;
+}
 export class GeneticWrapper {
-    private genetic: Genetic<DebutOptions>;
+    private genetic: Genetic<DebutCore>;
     private transport: TesterTransport;
-    private internalOptions: GeneticOptions<DebutOptions>;
+    private internalOptions: GeneticOptions<DebutCore>;
     private schema: GeneticSchema;
     private schemaKeys: string[];
-    private configLookup: Map<DebutOptions, unknown> = new Map();
+    private configLookup: Map<string, unknown> = new Map();
     private deduplicateLookup = new Set<string>();
-    private scoreLookup: Map<string, number> = new Map();
+    private scoreLookup: Map<string, ScoreData> = new Map();
     private lastIteration = false;
     private baseOpts: DebutOptions;
 
@@ -37,6 +43,10 @@ export class GeneticWrapper {
             crossoverProbablity: 0.6,
             deduplicate: this.deduplicate,
         };
+
+        if (options.cross) {
+            this.internalOptions.optimize = this.optimize;
+        }
 
         this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
     }
@@ -73,7 +83,7 @@ export class GeneticWrapper {
             }
 
             this.transport.setTicks(ticks);
-            this.genetic.seed();
+            await this.genetic.seed();
 
             for (let i = 0; i < this.options.generations; i++) {
                 this.lastIteration = i === this.options.generations - 1;
@@ -83,40 +93,36 @@ export class GeneticWrapper {
                     console.log('Generation: ', i);
                 }
 
+                if (this.options.cross) {
+                    this.transport.createCrossValidation(this.options.cross, this.onPhase);
+                }
+
                 // Запускаем транспорт в режиме ожидания пока не подпишется вся популяция
-                this.transport.run(true);
+                await this.transport.run(true);
                 await this.genetic.estimate();
+
+                this.genetic.population.forEach((pair) => {
+                    pair.entity.dispose();
+                });
 
                 if (this.options.log) {
                     console.log('Generation time: ', (Date.now() - now) / 1000, 's');
                     console.log('Stats: ', this.genetic.stats);
                 }
 
+                this.transport.reset();
                 // Если это последняя итерация дальше скрещивать не нужно
                 if (!this.lastIteration) {
-                    this.genetic.breed();
+                    await this.genetic.breed();
                 }
 
-                this.transport.reset();
                 this.deduplicateLookup.clear();
             }
 
             return this.genetic
                 .best(this.options.best || 30)
                 .reverse()
-                .map((config) => ({ config, stats: this.configLookup.get(config) }));
-
-            // const [config] = this.genetic.best(1);
-            // this.lastIteration = false;
-            // this.results.push({ config, stats: this.configLookup.get(config) });
-
-            // if (this.results.length === this.options.best) {
-            //     return this.results;
-            // }
-
-            // // СБросим популяцию
-            // this.genetic['population'] = [];
-            // return this.start(schema, opts);
+                .map((bot) => ({ config: bot.opts, stats: this.configLookup.get(bot.id) }));
         } catch (e) {
             console.log(e);
 
@@ -124,96 +130,129 @@ export class GeneticWrapper {
         }
     }
 
-    private getRandomSolution = () => {
-        const solution = { ...this.baseOpts };
+    private getRandomSolution = async () => {
+        const config = { ...this.baseOpts };
 
         this.schemaKeys.forEach((key) => {
-            solution[key] = getRandomByRange(this.schema[key]);
+            config[key] = getRandomByRange(this.schema[key]);
         });
 
-        if (this.options.validateSchema(solution)) {
-            return solution;
+        if (this.options.validateSchema(config)) {
+            return this.createBot(config);
         }
 
         return this.getRandomSolution();
     };
 
-    private fitness = async (solution: DebutOptions) => {
-        const hash = JSON.stringify(solution, Object.keys(solution).sort());
-        const prev = this.scoreLookup.get(hash);
+    private fitness = async (bot: DebutCore) => {
+        const hash = bot.id;
+        const storedScore = (this.scoreLookup.get(hash) || {}) as ScoreData;
 
-        // If duplicates are allowed
-        if (prev && !this.lastIteration) {
-            await this.transport.complete;
+        if (storedScore.main === undefined) {
+            storedScore.before = 0;
+            storedScore.after = 0;
 
-            return prev;
+            const score = this.options.score(bot);
+            const stats = this.options.stats(bot);
+
+            storedScore.main = score;
+            this.scoreLookup.set(hash, storedScore);
+            this.configLookup.set(hash, stats);
         }
 
-        const bot = await this.options.create(this.transport, solution, WorkingEnv.genetic);
-        const dispose = await bot.start();
-
-        await this.transport.complete;
-        await bot.closeAll();
-        const stats = this.options.stats(bot);
-
-        if (this.lastIteration) {
-            this.configLookup.set(solution, stats);
-        }
-
-        const result = this.options.score(bot);
-        this.scoreLookup.set(hash, result);
-
-        dispose();
-
-        return result;
+        return storedScore.main;
     };
 
-    private mutate = (solution: DebutOptions) => {
-        solution = { ...solution };
+    private mutate = async (bot: DebutCore) => {
+        const config = { ...bot.opts };
 
-        this.schemaKeys.forEach((key) => {
-            if (key in this.schema && Math.random() < 0.3) {
-                solution[key] = getRandomByRange(this.schema[key]);
-            }
-        });
-
-        if (this.options.validateSchema(solution)) {
-            return solution;
+        if (Math.random() < 0.3) {
+            this.schemaKeys.forEach((key) => {
+                if (key in this.schema) {
+                    config[key] = getRandomByRange(this.schema[key]);
+                }
+            });
         }
 
-        return this.mutate(solution);
+        if (this.options.validateSchema(config)) {
+            return this.createBot(config);
+        }
+
+        return this.mutate(bot);
     };
 
-    private crossover = (mother: DebutOptions, father: DebutOptions, i = 0) => {
+    private crossover = async (mother: DebutCore, father: DebutCore, i = 0) => {
         // two-point crossover
-        const son: DebutOptions = { ...father };
-        const daughter: DebutOptions = { ...mother };
+        const sonConfig: DebutOptions = { ...father.opts };
+        const daughterConfig: DebutOptions = { ...mother.opts };
 
         this.schemaKeys.forEach((key: string) => {
-            const source1 = Math.random() > 0.5 ? mother : father;
-            const source2 = Math.random() > 0.5 ? father : mother;
+            const source1 = Math.random() > 0.5 ? mother.opts : father.opts;
+            const source2 = Math.random() > 0.5 ? father.opts : mother.opts;
 
-            son[key] = source1[key];
-            daughter[key] = source2[key];
+            sonConfig[key] = source1[key];
+            daughterConfig[key] = source2[key];
         });
 
-        if (i >= 10 || (this.options.validateSchema(son) && this.options.validateSchema(daughter))) {
-            return [son, daughter];
+        if (i >= 10 || (this.options.validateSchema(sonConfig) && this.options.validateSchema(daughterConfig))) {
+            return [await this.createBot(sonConfig), await this.createBot(daughterConfig)];
         }
 
         return this.crossover(mother, father, ++i);
     };
 
-    private deduplicate = (solution: DebutOptions) => {
-        const hash = JSON.stringify(solution, Object.keys(solution).sort());
+    private deduplicate = (bot: DebutCore) => {
+        const hash = bot.id;
 
         if (this.deduplicateLookup.has(hash)) {
+            bot.dispose();
             return false;
         }
 
         this.deduplicateLookup.add(hash);
 
         return true;
+    };
+
+    private async createBot(config: DebutOptions) {
+        const hash = JSON.stringify(config, Object.keys(config).sort());
+        const bot = await this.options.create(this.transport, config, WorkingEnv.genetic);
+        bot.id = hash;
+
+        if (!this.scoreLookup.has(hash)) {
+            await bot.start();
+        }
+
+        return bot;
+    }
+
+    private onPhase = async (phase: TestingPhase) => {
+        for (const pair of this.genetic.population) {
+            const hash = pair.entity.id;
+            const storedScore = (this.scoreLookup.get(hash) || {}) as ScoreData;
+
+            if (storedScore.after !== undefined) {
+                continue;
+            }
+
+            if (phase === TestingPhase.main) {
+                const stats = this.options.stats(pair.entity);
+                this.configLookup.set(hash, stats);
+            }
+
+            storedScore[phase] = this.options.score(pair.entity, phase);
+            this.scoreLookup.set(hash, storedScore);
+        }
+    };
+
+    private optimize = (a: Phenotype<DebutCore>, b: Phenotype<DebutCore>) => {
+        const ascore = this.scoreLookup.get(a.entity.id);
+        const bscore = this.scoreLookup.get(b.entity.id);
+
+        const atotal = ascore.main + ascore.before || 0 * 1.5 + ascore.after || 0 * 2;
+        const btotal = bscore.main + bscore.before || 0 * 1.5 + bscore.after || 0 * 2;
+
+        return atotal >= btotal;
     };
 }
 

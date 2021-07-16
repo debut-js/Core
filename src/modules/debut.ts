@@ -15,6 +15,7 @@ import {
 } from '@debut/types';
 
 export abstract class Debut implements DebutCore {
+    public id: string;
     public dispose: () => void;
     public instrument: Instrument;
     public opts: DebutOptions;
@@ -30,6 +31,7 @@ export abstract class Debut implements DebutCore {
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
         this.opts = opts;
+        this.dispose = () => null;
     }
 
     /**
