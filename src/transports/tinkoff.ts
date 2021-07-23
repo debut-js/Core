@@ -114,7 +114,7 @@ export class TinkoffTransport implements BaseTransport {
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
         const { figi, type, lots, sandbox, learning } = order;
-        let retry = 0;
+        order.retries = 0;
 
         if (sandbox || learning) {
             return this.placeSandboxOrder(order);
@@ -128,7 +128,7 @@ export class TinkoffTransport implements BaseTransport {
                 throw res;
             }
 
-            if (retry) {
+            if (order.retries > 0) {
                 debug.logDebug(' retry success');
             }
 
@@ -141,13 +141,13 @@ export class TinkoffTransport implements BaseTransport {
 
             return order as ExecutedOrder;
         } catch (e) {
-            if (!retry || retry <= 10) {
+            if (order.retries <= 10) {
                 debug.logDebug(' error order place \n', e);
-                retry++;
+                order.retries++;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
                 // тк блокировка длится в среднем 30 минут
                 const timeout = Math.floor(
-                    math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
+                    math.clamp(Math.pow(3 + Math.random(), order.retries) * 1000, 3000, 300000) + 60000 * Math.random(),
                 );
                 await promise.sleep(timeout);
 

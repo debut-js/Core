@@ -170,7 +170,7 @@ export class AlpacaTransport implements BaseTransport {
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning, ticker, currency } = order;
-        let retry = 0;
+        order.retries = 0;
 
         if (sandbox || learning) {
             return this.placeSandboxOrder(order);
@@ -189,7 +189,7 @@ export class AlpacaTransport implements BaseTransport {
                 throw res;
             }
 
-            if (retry) {
+            if (order.retries > 0) {
                 debug.logDebug(' retry success');
             }
 
@@ -203,13 +203,13 @@ export class AlpacaTransport implements BaseTransport {
 
             return executed;
         } catch (e) {
-            if (!retry || retry <= 10) {
+            if (order.retries <= 10) {
                 debug.logDebug(' error order place \n', e);
-                retry++;
+                order.retries++;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
                 // тк блокировка длится в среднем 30 минут
                 const timeout = Math.floor(
-                    math.clamp(Math.pow(3 + Math.random(), retry) * 1000, 3000, 300000) + 60000 * Math.random(),
+                    math.clamp(Math.pow(3 + Math.random(), order.retries) * 1000, 3000, 300000) + 60000 * Math.random(),
                 );
                 await promise.sleep(timeout);
 
