@@ -170,7 +170,7 @@ export class AlpacaTransport implements BaseTransport {
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning, ticker, currency } = order;
-        order.retries = 0;
+        order.retries = order.retries || 0;
 
         if (sandbox || learning) {
             return this.placeSandboxOrder(order);

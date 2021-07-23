@@ -125,7 +125,7 @@ export class BinanceTransport implements BaseTransport {
 
     public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
         const { type, lots: requestedLots, sandbox, ticker, learning, currency } = order;
-        order.retries = 0;
+        order.retries = order.retries || 0;
 
         if (sandbox || learning) {
             return this.placeSandboxOrder(order);
