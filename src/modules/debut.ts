@@ -21,11 +21,11 @@ export abstract class Debut implements DebutCore {
     public opts: DebutOptions;
     public orders: ExecutedOrder[] = [];
     public transport: BaseTransport;
+    public learning: boolean;
     protected plugins: unknown;
     protected candles: Candle[] = [];
     private marketTick: Candle;
     private pluginDriver: PluginDriver;
-    private learning: boolean;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
         this.transport = transport;
