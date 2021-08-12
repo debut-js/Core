@@ -90,6 +90,7 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
+        console.log('close start');
         const orders: Array<ExecutedOrder> = [];
 
         // Because close order mutate this.orders array, make shallow immutable for loop
@@ -99,6 +100,7 @@ export abstract class Debut implements DebutCore {
             orders.push(executedOrder);
         }
 
+        console.log('close end');
         return orders;
     }
 
@@ -106,6 +108,7 @@ export abstract class Debut implements DebutCore {
      * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
+        console.log('create order start');
         const { c: price, time } = this.marketTick;
         const {
             amount,
@@ -145,6 +148,7 @@ export abstract class Debut implements DebutCore {
                 equityLevel,
             };
 
+            console.log('create order hook on before open');
             // Skipping opening because the plugin prevent further actions
             const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeOpen>(
                 PluginHook.onBeforeOpen,
@@ -155,10 +159,13 @@ export abstract class Debut implements DebutCore {
                 return;
             }
 
+            console.log('create order transport start');
             const order = await this.transport.placeOrder(orderOptions);
-
+            console.log('create order transport end');
+            console.log('create order hook on open');
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
 
+            console.log('create order add order to list');
             this.orders.push(order);
             await this.onOrderOpened(order);
 

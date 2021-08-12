@@ -259,13 +259,17 @@ export class BinanceTransport implements BaseTransport {
 
     private handlerAdapter(handler: TickHandler) {
         return (tick: BinanceCandle) => {
-            handler({
-                o: parseFloat(tick.open),
-                h: parseFloat(tick.high),
-                l: parseFloat(tick.low),
-                c: parseFloat(tick.close),
-                v: parseFloat(tick.volume),
-                time: tick.startTime,
+            console.log('new tick task planned');
+            setImmediate(() => {
+                console.log('new tick task executed');
+                handler({
+                    o: parseFloat(tick.open),
+                    h: parseFloat(tick.high),
+                    l: parseFloat(tick.low),
+                    c: parseFloat(tick.close),
+                    v: parseFloat(tick.volume),
+                    time: tick.startTime,
+                });
             });
         };
     }
