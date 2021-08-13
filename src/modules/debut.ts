@@ -89,16 +89,17 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        const orders: Array<ExecutedOrder> = [];
-
+        const closed: Array<ExecutedOrder> = [];
         // Because close order mutate this.orders array, make shallow immutable for loop
-        while (this.orders.length > 0) {
-            const executedOrder = await this.closeOrder(this.orders[0]);
+        const orders = [...this.orders];
+        const len = orders.length;
 
-            orders.push(executedOrder);
+        for (let i = 0; i < len; i++) {
+            const executedOrder = await this.closeOrder(this.orders[0]);
+            closed.push(executedOrder);
         }
 
-        return orders;
+        return closed;
     }
 
     /**
