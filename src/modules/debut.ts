@@ -322,7 +322,7 @@ export abstract class Debut implements DebutCore {
             this.orders[idx] = order;
         } else {
             // TODO: Remove when fine
-            console.warn('Unkndown order for replace', this.orders, order);
+            console.warn('Unknown order for replace', this.orders, order);
         }
     }
 
