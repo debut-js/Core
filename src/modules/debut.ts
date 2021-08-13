@@ -24,7 +24,6 @@ export abstract class Debut implements DebutCore {
     public learning: boolean;
     protected plugins: unknown;
     protected candles: Candle[] = [];
-    private marketTick: Candle;
     private pluginDriver: PluginDriver;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
@@ -38,14 +37,14 @@ export abstract class Debut implements DebutCore {
      * Prev candle hot getter (last closed candle)
      */
     get prevCandle() {
-        return this.candles[0];
+        return this.candles[1];
     }
 
     /**
      * Current candle hot getter (current candle is on right now, and not closed yet)
      */
     get currentCandle() {
-        return this.marketTick;
+        return this.candles[0];
     }
 
     /**
@@ -106,7 +105,7 @@ export abstract class Debut implements DebutCore {
      * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
-        const { c: price, time } = this.marketTick;
+        const { c: price, time } = this.currentCandle;
         const {
             amount,
             lotsMultiplier = 1,
@@ -178,7 +177,7 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        const { c: price, time } = this.marketTick;
+        const { c: price, time } = this.currentCandle;
         const { currency, interval, broker, margin, lotsMultiplier, equityLevel } = this.opts;
         const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
         const type = orders.inverseType(closing.type);
@@ -274,25 +273,23 @@ export abstract class Debut implements DebutCore {
     }
 
     private handler = async (tick: Candle) => {
-        const change = this.marketTick && this.marketTick.time !== tick.time;
+        const change = this.currentCandle && this.currentCandle.time !== tick.time;
         const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onTick>(PluginHook.onTick, tick);
 
         if (skip) {
             return;
         }
 
-        // React to a tick to determine the current price of market deals and time
-        // Then we call hooks so that plugins can close by market
-        const prevTick = this.marketTick;
-        this.marketTick = tick;
-
-        // If the time has changed and there was a previous tick, write the last tick data to the candle
-        if (change && prevTick) {
-            this.updateCandles(prevTick);
+        if (change) {
+            // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
+            const prevTick = this.currentCandle;
+            this.updateCandles(tick);
 
             await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
             await this.onCandle(prevTick);
             await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
+        } else {
+            this.candles[0] = tick;
         }
 
         await this.onTick(tick);
