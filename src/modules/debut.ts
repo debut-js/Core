@@ -8,8 +8,8 @@ import {
     DebutOptions,
     ExecutedOrder,
     Instrument,
-    OrderOptions,
     OrderType,
+    PendingOrder,
     PluginHook,
     PluginInterface,
 } from '@debut/types';
@@ -20,6 +20,7 @@ export abstract class Debut implements DebutCore {
     public instrument: Instrument;
     public opts: DebutOptions;
     public orders: ExecutedOrder[] = [];
+    public pending: PendingOrder[] = [];
     public transport: BaseTransport;
     public learning: boolean;
     protected plugins: unknown;
@@ -121,41 +122,43 @@ export abstract class Debut implements DebutCore {
         const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, ticker);
+        const pendingOrder: PendingOrder = {
+            cid: Date.now(),
+            broker,
+            type: operation,
+            ticker,
+            figi,
+            currency,
+            interval,
+            author: this.getName(),
+            price,
+            lots,
+            lotSize,
+            pipSize,
+            close: false,
+            sandbox,
+            learning: this.learning,
+            time,
+            margin,
+            futures,
+            lotsMultiplier,
+            equityLevel,
+        };
 
         try {
-            const orderOptions: OrderOptions = {
-                broker,
-                type: operation,
-                ticker,
-                figi,
-                currency,
-                interval,
-                author: this.getName(),
-                price,
-                lots,
-                lotSize,
-                pipSize,
-                close: false,
-                sandbox,
-                learning: this.learning,
-                time,
-                margin,
-                futures,
-                lotsMultiplier,
-                equityLevel,
-            };
-
             // Skipping opening because the plugin prevent further actions
             const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeOpen>(
                 PluginHook.onBeforeOpen,
-                orderOptions,
+                pendingOrder,
             );
 
             if (skip) {
                 return;
             }
 
-            const order = await this.transport.placeOrder(orderOptions);
+            this.addPending(pendingOrder);
+
+            const order = await this.transport.placeOrder(pendingOrder);
 
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
 
@@ -165,6 +168,8 @@ export abstract class Debut implements DebutCore {
             return order;
         } catch (e) {
             console.log(new Date().toISOString(), 'Ошибка создания ордера', e);
+        } finally {
+            this.removePending(pendingOrder);
         }
     }
 
@@ -180,40 +185,39 @@ export abstract class Debut implements DebutCore {
         const { c: price, time } = this.marketTick;
         const { currency, interval, broker, margin, lotsMultiplier, equityLevel } = this.opts;
         const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
-
         const type = orders.inverseType(closing.type);
         const lots = this.transport.prepareLots(closing.executedLots * lotSize, ticker);
+        const pendingOrder: PendingOrder = {
+            cid: Date.now(),
+            broker,
+            type,
+            ticker,
+            figi,
+            currency,
+            interval,
+            author: this.getName(),
+            price,
+            lots,
+            lotSize,
+            pipSize,
+            close: true,
+            openPrice: closing.price,
+            openId: closing.orderId,
+            sandbox: closing.sandbox,
+            learning: closing.learning,
+            time,
+            margin,
+            lotsMultiplier,
+            equityLevel,
+        };
 
         closing.processing = true;
 
         try {
-            const closeOrder: OrderOptions = {
-                broker,
-                type,
-                ticker,
-                figi,
-                currency,
-                interval,
-                author: this.getName(),
-                price,
-                lots,
-                lotSize,
-                pipSize,
-                close: true,
-                openPrice: closing.price,
-                openId: closing.orderId,
-                sandbox: closing.sandbox,
-                learning: closing.learning,
-                time,
-                margin,
-                lotsMultiplier,
-                equityLevel,
-            };
-
             // Skip opening because action prevented from plugins
             const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeClose>(
                 PluginHook.onBeforeClose,
-                closeOrder,
+                pendingOrder,
                 closing,
             );
 
@@ -222,23 +226,32 @@ export abstract class Debut implements DebutCore {
                 return;
             }
 
-            const order = await this.transport.placeOrder(closeOrder);
-
             const idx = this.orders.indexOf(closing);
 
             if (idx !== -1) {
                 this.orders.splice(idx, 1);
             }
 
+            this.addPending(pendingOrder);
+
+            const order = await this.transport.placeOrder(pendingOrder);
+
             await this.pluginDriver.asyncReduce<PluginHook.onClose>(PluginHook.onClose, order, closing);
             await this.onOrderClosed(order, closing);
 
-            closing.processing = false;
-
             return order;
         } catch (e) {
-            closing.processing = false;
             console.log(new Date().toISOString(), 'Ошибка закрытия ордера', e);
+
+            const idx = this.orders.indexOf(closing);
+
+            // Restore order in list
+            if (idx === -1) {
+                this.orders.unshift(closing);
+            }
+        } finally {
+            closing.processing = false;
+            this.removePending(pendingOrder);
         }
     }
 
@@ -307,6 +320,24 @@ export abstract class Debut implements DebutCore {
         }
 
         this.candles.unshift(candle);
+    }
+
+    /**
+     * Create pending order with client id
+     */
+    private addPending(order: PendingOrder) {
+        this.pending.push(order);
+    }
+
+    /**
+     * Remove pending order by executed order with same client id
+     */
+    private removePending(order: ExecutedOrder | PendingOrder) {
+        const idx = this.pending.findIndex((item) => item.cid === order.cid);
+
+        if (idx !== -1) {
+            this.pending.splice(idx, 1);
+        }
     }
 
     protected async onOrderClosed(order: ExecutedOrder, closing: ExecutedOrder): Promise<void> {}

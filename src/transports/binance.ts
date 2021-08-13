@@ -5,6 +5,7 @@ import {
     Instrument,
     OrderOptions,
     OrderType,
+    PendingOrder,
     TickHandler,
     TimeFrame,
 } from '@debut/types';
@@ -123,7 +124,7 @@ export class BinanceTransport implements BaseTransport {
         };
     }
 
-    public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const { type, lots: requestedLots, sandbox, ticker, learning, currency } = order;
         order.retries = order.retries || 0;
 
@@ -229,7 +230,7 @@ export class BinanceTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const feeAmount = order.price * order.lots * 0.002;
         const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {

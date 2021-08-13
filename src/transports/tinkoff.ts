@@ -4,8 +4,8 @@ import {
     Candle,
     ExecutedOrder,
     Instrument,
-    OrderOptions,
     OrderType,
+    PendingOrder,
     TickHandler,
     TimeFrame,
 } from '@debut/types';
@@ -112,7 +112,7 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
-    public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const { figi, type, lots, sandbox, learning } = order;
         order.retries = order.retries || 0;
 
@@ -161,7 +161,7 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const feeAmount = order.price * order.lots * 0.0005;
         const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {

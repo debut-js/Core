@@ -4,8 +4,8 @@ import {
     Candle,
     ExecutedOrder,
     Instrument,
-    OrderOptions,
     OrderType,
+    PendingOrder,
     TickHandler,
     TimeFrame,
 } from '@debut/types';
@@ -168,7 +168,7 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning, ticker, currency } = order;
         order.retries = order.retries || 0;
 
@@ -223,7 +223,7 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const feeAmount = order.price * order.lots * 0.0005;
         const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {
