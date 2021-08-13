@@ -122,7 +122,7 @@ export abstract class Debut implements DebutCore {
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, ticker);
         const pendingOrder: PendingOrder = {
-            cid: Date.now(),
+            cid: Math.random() * 1e17,
             broker,
             type: operation,
             ticker,
