@@ -1,14 +1,7 @@
 import { promise, orders, math } from '@debut/plugin-utils';
-import {
-    BaseTransport,
-    TickHandler,
-    Instrument,
-    OrderOptions,
-    ExecutedOrder,
-    Candle,
-    TestingPhase,
-} from '@debut/types';
+import { BaseTransport, TickHandler, Instrument, ExecutedOrder, Candle, TestingPhase } from '@debut/types';
 import { generateOHLC } from './history';
+import { PendingOrder } from '@debut/types';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -136,7 +129,7 @@ export class TesterTransport implements BaseTransport {
         });
     }
 
-    public async placeOrder(order: OrderOptions): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
         const feeAmount = order.price * order.lots * this.fee;
         const commission = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
@@ -149,7 +142,7 @@ export class TesterTransport implements BaseTransport {
         return executed;
     }
 
-    public placeSandboxOrder(order: OrderOptions) {
+    public placeSandboxOrder(order: PendingOrder) {
         return this.placeOrder(order);
     }
 
