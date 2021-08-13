@@ -19,8 +19,7 @@ export abstract class Debut implements DebutCore {
     public dispose: () => void;
     public instrument: Instrument;
     public opts: DebutOptions;
-    public orders: ExecutedOrder[] = [];
-    public pending: PendingOrder[] = [];
+    public orders: Array<ExecutedOrder | PendingOrder> = [];
     public transport: BaseTransport;
     public learning: boolean;
     protected plugins: unknown;
@@ -156,29 +155,25 @@ export abstract class Debut implements DebutCore {
                 return;
             }
 
-            this.addPending(pendingOrder);
-
+            this.orders.push(pendingOrder);
             const order = await this.transport.placeOrder(pendingOrder);
-
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
-
-            this.orders.push(order);
             await this.onOrderOpened(order);
+            this.replacePendingOrder(order);
 
             return order;
         } catch (e) {
             console.log(new Date().toISOString(), 'Ошибка создания ордера', e);
-        } finally {
-            this.removePending(pendingOrder);
         }
     }
 
     /**
      * Close selected order
      */
-    public async closeOrder(closing: ExecutedOrder) {
-        // Already closing
-        if (closing.processing) {
+    public async closeOrder(closing: ExecutedOrder | PendingOrder) {
+        // Already closing or try close not opened order
+        // TODO: Fix it with order STATUS enum
+        if (closing.processing || !('orderId' in closing)) {
             return;
         }
 
@@ -232,8 +227,6 @@ export abstract class Debut implements DebutCore {
                 this.orders.splice(idx, 1);
             }
 
-            this.addPending(pendingOrder);
-
             const order = await this.transport.placeOrder(pendingOrder);
 
             await this.pluginDriver.asyncReduce<PluginHook.onClose>(PluginHook.onClose, order, closing);
@@ -251,7 +244,6 @@ export abstract class Debut implements DebutCore {
             }
         } finally {
             closing.processing = false;
-            this.removePending(pendingOrder);
         }
     }
 
@@ -322,21 +314,14 @@ export abstract class Debut implements DebutCore {
         this.candles.unshift(candle);
     }
 
-    /**
-     * Create pending order with client id
-     */
-    private addPending(order: PendingOrder) {
-        this.pending.push(order);
-    }
-
-    /**
-     * Remove pending order by executed order with same client id
-     */
-    private removePending(order: ExecutedOrder | PendingOrder) {
-        const idx = this.pending.findIndex((item) => item.cid === order.cid);
+    private replacePendingOrder(order: ExecutedOrder) {
+        const idx = this.orders.findIndex((item) => item.cid === order.cid);
 
         if (idx !== -1) {
-            this.pending.splice(idx, 1);
+            this.orders[idx] = order;
+        } else {
+            // TODO: Remove when fine
+            console.warn('Unkndown order for replace', this.orders, order);
         }
     }
 
