@@ -164,6 +164,7 @@ export abstract class Debut implements DebutCore {
             return order;
         } catch (e) {
             console.log(new Date().toISOString(), 'Ошибка создания ордера', e);
+            this.removePendingOrder(pendingOrder);
         }
     }
 
@@ -314,6 +315,9 @@ export abstract class Debut implements DebutCore {
         this.candles.unshift(candle);
     }
 
+    /**
+     * Replace pending order to executed by cid
+     */
     private replacePendingOrder(order: ExecutedOrder) {
         const idx = this.orders.findIndex((item) => item.cid === order.cid);
 
@@ -322,6 +326,17 @@ export abstract class Debut implements DebutCore {
         } else {
             // TODO: Remove when fine
             console.warn('Unkndown order for replace', this.orders, order);
+        }
+    }
+
+    /**
+     * Remove pending order by cid
+     */
+    private removePendingOrder(order: PendingOrder) {
+        const idx = this.orders.findIndex((item) => item.cid === order.cid);
+
+        if (idx !== -1) {
+            this.orders.splice(idx, 1);
         }
     }
 
