@@ -36,7 +36,7 @@
         "@types/ws": "^7.4.7"
     },
     "devDependencies": {
-        "@debut/types": "^1.0.23",
+        "@debut/types": "^1.0.24",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
         "@types/jest": "^26.0.24",
