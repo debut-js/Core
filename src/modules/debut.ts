@@ -53,7 +53,6 @@ export abstract class Debut implements DebutCore {
     public registerPlugins(plugins: PluginInterface[]) {
         this.pluginDriver.register(plugins);
         this.plugins = this.pluginDriver.getPublicAPI();
-        this.pluginDriver.syncReduce<PluginHook.onInit>(PluginHook.onInit);
     }
 
     /**

@@ -24,10 +24,16 @@ export class PluginDriver implements PluginDriverInterface {
     public register(plugins: PluginInterface[]) {
         for (const plugin of plugins) {
             if (!plugin || this.findPlugin(plugin.name)) {
+                console.warn(`Plugin ${plugin.name} initialized many times!`);
                 continue;
             }
 
             this.plugins.push(plugin);
+
+            // Run init hook only on fresh added plugins
+            if (PluginHook.onInit in plugin) {
+                plugin[PluginHook.onInit].call(this.pluginCtx);
+            }
         }
     }
 
