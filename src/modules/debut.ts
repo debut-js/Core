@@ -283,11 +283,10 @@ export abstract class Debut implements DebutCore {
         if (change) {
             // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
             const prevTick = this.currentCandle;
-            this.updateCandles(tick);
-
             await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
             await this.onCandle(prevTick);
             await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
+            this.updateCandles(tick);
         } else {
             this.candles[0] = tick;
         }
