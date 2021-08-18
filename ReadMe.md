@@ -20,12 +20,21 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
     <a href="https://www.patreon.com/bePatron?u=57560983"><img src="/.github/assets/buy2.png" alt="Request implementation" width="64"></a>
 </p>
 
-## Community edition
-We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
+## Premium access
+### @debut/enterprise-core
 
-## Enterprise edition ($100/mo [buy now!](https://www.patreon.com/bePatron?u=57560983))
-Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development.
+<h5> Timeframe Aggregator </h5>
+This is a kernel module responsible for aggregating candlesticks `1min` ticks in any other available time periods.
+It allows you to create timeframes supported by `Debut` even if they are not supported by the broker. And also get access to a candlestick of any higher timeframe, for example, build daily support and resistance levels, take indicator readings from four hourly candles, and much more. Below is an example of registering access to a `day` timeframe.
 
+<h5> Advanced tick emulation </h5>
+Allows to emulate ticks in a test environment with maximum accuracy, by creating price changes based on `1min` ticks, split into open, high, low, close. To collect timeframes, the aggregation module into candles of any time interval is used.
+
+
+<h5> Additional callbacks in plugins </h5>
+Additional callbacks are used in the premium version of Debut to expand the functionality of creating plugins. More details can be found in the plugins description section.
+
+The Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development. **($15/mo [buy now!](https://www.patreon.com/bePatron?u=57560983))**
 
 <table>
 <thead>
@@ -71,9 +80,13 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 <td align="center"> ❌ </td>
 <td align="center"> ✅ </td>
 </tr>
+<td> Report analyzer for `finder`. Creates screenshots from json files of reports and groups them according to efficiency </td>
+<td align="center"> ❌ </td>
+<td align="center"> ✅ </td>
+</tr>
 </tbody> </table>
 
-## Personal edition
+### Personal edition
 *Have no strategies from out of the box.*
 
 - Enterprise core inside!
@@ -84,7 +97,7 @@ Enterprise version is a ready-made set of tools for "big guys", for those who ar
 - Ready to start on VPS/VDS or cloud
 - Dashboard* [still in progress]
 
-## Business edition
+### Business edition
 - Multiple tokens for easy client connection (signals for sale to you clients)
 - Legal use Debut for business
 
