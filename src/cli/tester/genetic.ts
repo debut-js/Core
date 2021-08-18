@@ -236,6 +236,7 @@ export class GeneticWrapper {
             }
 
             if (phase === TestingPhase.main) {
+                await pair.entity.closeAll();
                 const stats = this.options.stats(pair.entity);
                 this.configLookup.set(hash, stats);
             }
