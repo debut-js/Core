@@ -171,7 +171,6 @@ export class BinanceTransport implements BaseTransport {
                         ...base,
                     };
 
-                    console.trace('buy!');
                     res = await this.api.futuresOrder(futuresPayload);
                     break;
                 case margin:
