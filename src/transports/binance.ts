@@ -171,6 +171,7 @@ export class BinanceTransport implements BaseTransport {
                         ...base,
                     };
 
+                    console.trace('buy!');
                     res = await this.api.futuresOrder(futuresPayload);
                     break;
                 case margin:
@@ -183,6 +184,7 @@ export class BinanceTransport implements BaseTransport {
                     break;
                 default:
                     res = await this.api.order(base);
+                    break;
             }
 
             if (badStatus.includes(res.status)) {

@@ -166,7 +166,7 @@ export abstract class Debut implements DebutCore {
 
             return order;
         } catch (e) {
-            console.log(new Date().toISOString(), 'Ошибка создания ордера', e);
+            console.warn(this.createCoreError(`${new Date().toISOString()} Error Order Place ${e.message}`));
             this.removePendingOrder(pendingOrder);
         }
     }
