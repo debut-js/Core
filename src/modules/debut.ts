@@ -204,6 +204,7 @@ export abstract class Debut implements DebutCore {
             openId: closing.orderId,
             sandbox: closing.sandbox,
             learning: closing.learning,
+            futures: closing.futures,
             time,
             margin,
             lotsMultiplier,

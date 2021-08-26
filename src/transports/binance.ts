@@ -18,11 +18,14 @@ import Binance, {
     NewFuturesOrder,
     NewOrderMargin,
     NewOrderMarketBase,
+    NewOrderRespType,
     Order,
     OrderSide,
     OrderType as BinanceOrderType,
+    PositionSide,
     SideEffectType,
     SymbolLotSizeFilter,
+    TimeInForce,
 } from 'binance-api-node';
 
 /**
@@ -62,6 +65,7 @@ export class BinanceTransport implements BaseTransport {
     protected instruments: Map<string, Instrument> = new Map();
     protected info: ExchangeInfo;
     protected futuresInfo: ExchangeInfo;
+    protected hedgeMode = false;
 
     constructor() {
         const tokens = cli.getTokens();
@@ -97,6 +101,7 @@ export class BinanceTransport implements BaseTransport {
             info = this.info = this.info || (await this.api.exchangeInfo());
         } else if (instrumentType === 'FUTURES') {
             info = this.futuresInfo = this.futuresInfo || (await this.api.futuresExchangeInfo());
+            this.hedgeMode = (await this.api.futuresPositionMode()).dualSidePosition;
         }
 
         const instrument = info.symbols.find((item) => item.symbol === ticker);
@@ -167,8 +172,20 @@ export class BinanceTransport implements BaseTransport {
 
             switch (true) {
                 case futures:
+                    let positionSide = PositionSide.BOTH;
+
+                    if (this.hedgeMode) {
+                        positionSide = type === OrderType.BUY ? PositionSide.LONG : PositionSide.SHORT;
+
+                        if (order.close) {
+                            positionSide = type === OrderType.BUY ? PositionSide.SHORT : PositionSide.LONG;
+                        }
+                    }
+
                     const futuresPayload: NewFuturesOrder = {
                         ...base,
+                        positionSide,
+                        newOrderRespType: NewOrderRespType.RESULT,
                     };
 
                     res = await this.api.futuresOrder(futuresPayload);
@@ -217,17 +234,25 @@ export class BinanceTransport implements BaseTransport {
                 price = math.toFixed(Number(res.avgPrice), precision);
             }
 
-            const realQty = qty - fees;
-            let lots = this.prepareLots(realQty, instrumentId);
-            const isInteger = parseInt(`${lots}`) === lots;
-            const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
+            let lots: number;
 
-            // Issue with rounding
-            // Reduce lots when rounding is more than source amount
-            while (lots > realQty && lots > 0) {
-                lots = this.prepareLots(lots - lotsRedunantValue, instrumentId);
+            if (qty) {
+                const realQty = qty - fees;
+                const isInteger = parseInt(`${lots}`) === lots;
+                const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
+
+                // Issue with rounding
+                // Reduce lots when rounding is more than source amount
+                while (lots > realQty && lots > 0) {
+                    lots = this.prepareLots(lots - lotsRedunantValue, instrumentId);
+                }
             }
 
+            if ('executedQty' in res) {
+                lots = Number(res.executedQty);
+            }
+
+            lots = this.prepareLots(lots, instrumentId);
             const feeAmount = order.price * order.lots * 0.001;
             const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
