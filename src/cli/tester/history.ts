@@ -119,7 +119,7 @@ async function createRequest(
 ) {
     const validFrom = from / 100000;
     const validTo = to / 100000;
-    const subfolder = instrumentType === InstrumentType.FUTURES ? '/futures/' : '';
+    const subfolder = instrumentType === 'FUTURES' ? '/futures/' : '';
     const path = `history/${broker}/${subfolder}${ticker}/${interval}/${validFrom}-${validTo}.txt`;
     const historyFile = file.readFile(path);
 

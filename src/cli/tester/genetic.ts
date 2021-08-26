@@ -65,9 +65,9 @@ export class GeneticWrapper {
                 ticker: opts.ticker,
             });
 
-            const { broker = 'tinkoff', ticker, interval, futures } = opts;
+            const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
             const { days, gapDays } = this.options;
-            const instrumentType = futures ? InstrumentType.FUTURES : InstrumentType.SPOT;
+            const futures = instrumentType === 'FUTURES';
 
             let ticks = await getHistory({
                 broker,

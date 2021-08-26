@@ -7,7 +7,7 @@ export function createRequestBinance(instrumentType: InstrumentType) {
     let apiName = 'api';
     let apiVersion = 'v3';
 
-    if (instrumentType === InstrumentType.FUTURES) {
+    if (instrumentType === 'FUTURES') {
         endpoint = 'fapi.binance.com';
         apiName = 'fapi';
         apiVersion = 'v1';

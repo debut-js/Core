@@ -1,7 +1,15 @@
 import { promise, orders, math } from '@debut/plugin-utils';
-import { BaseTransport, TickHandler, Instrument, ExecutedOrder, Candle, TestingPhase } from '@debut/types';
+import {
+    BaseTransport,
+    TickHandler,
+    Instrument,
+    ExecutedOrder,
+    Candle,
+    TestingPhase,
+    DebutOptions,
+    PendingOrder,
+} from '@debut/types';
 import { generateOHLC } from './history';
-import { PendingOrder } from '@debut/types';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -36,7 +44,9 @@ export class TesterTransport implements BaseTransport {
         };
     }
 
-    public async getInstrument() {
+    public async getInstrument(opts: DebutOptions) {
+        const instrumentId = this.getInstrumentId(opts);
+
         if (!this.tickPhases.main.length) {
             throw new Error('transport is not ready, set ticks before bot.start() call');
         }
@@ -63,6 +73,8 @@ export class TesterTransport implements BaseTransport {
             lotPrecision: 10,
             lot: 1,
             currency: 'USD',
+            id: instrumentId,
+            type: opts.instrumentType,
         } as Instrument;
     }
 
@@ -117,7 +129,7 @@ export class TesterTransport implements BaseTransport {
         this.onPhase = onPhase;
     }
 
-    public subscribeToTick(ticker: string, handler: TickHandler) {
+    public subscribeToTick(opts: DebutOptions, handler: TickHandler) {
         this.handlers.push(handler);
 
         return Promise.resolve(() => {
@@ -177,5 +189,9 @@ export class TesterTransport implements BaseTransport {
         }
 
         this.resolve();
+    }
+
+    private getInstrumentId(opts: DebutOptions) {
+        return `${opts.ticker}:${opts.instrumentType}`;
     }
 }
