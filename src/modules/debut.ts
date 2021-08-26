@@ -13,6 +13,7 @@ import {
     PluginHook,
     PluginInterface,
 } from '@debut/types';
+import { DebutError, ErrorEnvironment } from './error';
 
 export abstract class Debut implements DebutCore {
     public id: string;
@@ -27,10 +28,13 @@ export abstract class Debut implements DebutCore {
     private pluginDriver: PluginDriver;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
+        const defaultOptions: Partial<DebutOptions> = { instrumentType: 'SPOT', fee: 0.0003 };
+
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
-        this.opts = opts;
+        this.opts = { ...defaultOptions, ...opts };
         this.dispose = () => null;
+        this.validateConfig();
     }
 
     /**
@@ -60,8 +64,8 @@ export abstract class Debut implements DebutCore {
      */
     public async start() {
         await this.pluginDriver.asyncReduce<PluginHook.onStart>(PluginHook.onStart);
-        this.instrument = await this.transport.getInstrument(this.opts.ticker);
-        const unsubscribe = await this.transport.subscribeToTick(this.opts.ticker, this.handler, this.opts.interval);
+        this.instrument = await this.transport.getInstrument(this.opts);
+        const unsubscribe = await this.transport.subscribeToTick(this.opts, this.handler);
 
         this.dispose = async () => {
             await this.closeAll();
@@ -115,11 +119,11 @@ export abstract class Debut implements DebutCore {
             interval,
             broker,
             margin,
-            futures,
+            instrumentType,
         } = this.opts;
-        const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
+        const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;
         const lotPrice = price * lotSize;
-        const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, ticker);
+        const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, id);
         const pendingOrder: PendingOrder = {
             cid: Math.random() * 1e17,
             broker,
@@ -138,7 +142,7 @@ export abstract class Debut implements DebutCore {
             learning: this.learning,
             time,
             margin,
-            futures,
+            futures: instrumentType === 'FUTURES',
             lotsMultiplier,
             equityLevel,
         };
@@ -155,7 +159,7 @@ export abstract class Debut implements DebutCore {
             }
 
             this.orders.push(pendingOrder);
-            const order = await this.transport.placeOrder(pendingOrder);
+            const order = await this.transport.placeOrder(pendingOrder, this.opts);
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
             await this.onOrderOpened(order);
             this.replacePendingOrder(order);
@@ -179,9 +183,9 @@ export abstract class Debut implements DebutCore {
 
         const { c: price, time } = this.currentCandle;
         const { currency, interval, broker, margin, lotsMultiplier, equityLevel } = this.opts;
-        const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
+        const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;
         const type = orders.inverseType(closing.type);
-        const lots = this.transport.prepareLots(closing.executedLots * lotSize, ticker);
+        const lots = this.transport.prepareLots(closing.executedLots * lotSize, id);
         const pendingOrder: PendingOrder = {
             cid: Date.now(),
             broker,
@@ -227,7 +231,7 @@ export abstract class Debut implements DebutCore {
                 this.orders.splice(idx, 1);
             }
 
-            const order = await this.transport.placeOrder(pendingOrder);
+            const order = await this.transport.placeOrder(pendingOrder, this.opts);
 
             await this.pluginDriver.asyncReduce<PluginHook.onClose>(PluginHook.onClose, order, closing);
             await this.onOrderClosed(order, closing);
@@ -253,7 +257,7 @@ export abstract class Debut implements DebutCore {
      * To make a smooth transition to real deals
      */
     public async learn(days = 7) {
-        this.instrument = await this.transport.getInstrument(this.opts.ticker);
+        this.instrument = await this.transport.getInstrument(this.opts);
         this.learning = true;
         const ticks = await getHistory({
             broker: this.opts.broker,
@@ -261,6 +265,7 @@ export abstract class Debut implements DebutCore {
             days,
             interval: this.opts.interval,
             gapDays: 0,
+            instrumentType: this.opts.instrumentType,
         });
 
         while (ticks.length) {
@@ -333,6 +338,22 @@ export abstract class Debut implements DebutCore {
 
         if (idx !== -1) {
             this.orders.splice(idx, 1);
+        }
+    }
+
+    /**
+     * Error constructor wrapper
+     */
+    private createCoreError(msg: string) {
+        return new DebutError(ErrorEnvironment.Core, msg);
+    }
+
+    /**
+     * Pre defined rules for config validation
+     */
+    private validateConfig() {
+        if (this.opts.broker !== 'binance' && this.opts.instrumentType === 'FUTURES') {
+            throw this.createCoreError('Futures are supported only on "Binance" broker');
         }
     }
 

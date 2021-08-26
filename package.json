@@ -30,7 +30,7 @@
         "@master-chief/alpaca": "^6.2.4",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
         "async-genetic": "^1.4.2",
-        "binance-api-node": "0.10.49",
+        "binance-api-node": "0.11.12",
         "cli-progress": "^3.9.0",
         "node-fetch": "^2.6.1",
         "@types/ws": "^7.4.7"

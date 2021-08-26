@@ -11,6 +11,7 @@ import {
 } from '@debut/types';
 import { Bar, AlpacaClient, AlpacaStream } from '@master-chief/alpaca';
 import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
+import { DebutOptions } from '@debut/types';
 
 export type AlpacaTransportArgs = {
     atoken: string;
@@ -79,9 +80,11 @@ export class AlpacaTransport implements BaseTransport {
         });
     }
 
-    public async getInstrument(ticker: string) {
-        if (this.instruments.has(ticker)) {
-            return this.instruments.get(ticker);
+    public async getInstrument(opts: DebutOptions) {
+        const { ticker } = opts;
+        const instrumentId = this.getInstrumentId(opts);
+        if (this.instruments.has(instrumentId)) {
+            return this.instruments.get(instrumentId);
         }
 
         const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
@@ -109,15 +112,18 @@ export class AlpacaTransport implements BaseTransport {
             lot: 1, // lot is 1 always
             pipSize,
             lotPrecision: 1, // support only integer lots format
+            type: 'SPOT',
+            id: instrumentId,
         };
 
-        this.instruments.set(ticker, instrument);
+        this.instruments.set(instrumentId, instrument);
 
         return instrument;
     }
 
-    public async subscribeToTick(ticker: string, handler: TickHandler, interval: TimeFrame) {
+    public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
         try {
+            const { interval, ticker } = opts;
             const intervalTime = date.intervalToMs(interval);
             let startTime: number = ~~(Date.now() / intervalTime) * intervalTime;
             let endTime: number = startTime + intervalTime;
@@ -157,7 +163,7 @@ export class AlpacaTransport implements BaseTransport {
             this.stream.addListener('quote', listener);
 
             return () => {
-                this.instruments.delete(ticker);
+                this.instruments.delete(this.getInstrumentId(opts));
                 this.stream.unsubscribe('bars', [ticker]);
                 this.stream.unsubscribe('quotes', [ticker]);
                 this.stream.removeListener('bar', listener);
@@ -168,8 +174,10 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning, ticker, currency } = order;
+        const instrumentId = this.getInstrumentId(opts);
+
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
@@ -213,8 +221,8 @@ export class AlpacaTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(order.ticker)) {
-                    return this.placeOrder(order);
+                if (this.instruments.has(instrumentId)) {
+                    return this.placeOrder(order, opts);
                 }
             }
 
@@ -238,5 +246,9 @@ export class AlpacaTransport implements BaseTransport {
 
     public prepareLots(lots: number) {
         return Math.floor(lots) || 1;
+    }
+
+    private getInstrumentId(opts: DebutOptions) {
+        return `${opts.ticker}:${opts.instrumentType}`;
     }
 }

@@ -1,9 +1,10 @@
 import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
+import { DebutError, ErrorEnvironment } from '../modules/error';
 import {
     BaseTransport,
     ExecutedOrder,
     Instrument,
-    OrderOptions,
+    DebutOptions,
     OrderType,
     PendingOrder,
     TickHandler,
@@ -13,7 +14,10 @@ import Binance, {
     Candle as BinanceCandle,
     CandleChartInterval,
     ExchangeInfo,
-    NewOrder,
+    FuturesOrder,
+    NewFuturesOrder,
+    NewOrderMargin,
+    NewOrderMarketBase,
     Order,
     OrderSide,
     OrderType as BinanceOrderType,
@@ -57,6 +61,7 @@ export class BinanceTransport implements BaseTransport {
     public api: ReturnType<typeof Binance>;
     protected instruments: Map<string, Instrument> = new Map();
     protected info: ExchangeInfo;
+    protected futuresInfo: ExchangeInfo;
 
     constructor() {
         const tokens = cli.getTokens();
@@ -66,7 +71,7 @@ export class BinanceTransport implements BaseTransport {
         bsecret = tokens[bsecret];
 
         if (!btoken || !bsecret) {
-            throw 'Binance API token and secret are required!';
+            throw new DebutError(ErrorEnvironment.Transport, 'Binance API token and secret are required!');
         }
 
         // Authenticated client, can make signed calls
@@ -76,20 +81,28 @@ export class BinanceTransport implements BaseTransport {
         });
     }
 
-    public async getInstrument(ticker: string) {
-        // Возьмем из кеша если есть
-        if (this.instruments.has(ticker)) {
-            return this.instruments.get(ticker);
+    public async getInstrument(opts: DebutOptions) {
+        const { instrumentType, ticker } = opts;
+        // Allow trade futures and non futures contracrs at same time
+        const instrumentId = this.getInstrumentId(opts);
+        // Getting from cache if exists
+        if (this.instruments.has(instrumentId)) {
+            return this.instruments.get(instrumentId);
         }
 
         const prices = await this.api.prices({ symbol: ticker });
+        let info: ExchangeInfo;
 
-        this.info = this.info || (await this.api.exchangeInfo());
+        if (instrumentType === 'SPOT') {
+            info = this.info = this.info || (await this.api.exchangeInfo());
+        } else if (instrumentType === 'FUTURES') {
+            info = this.futuresInfo = this.futuresInfo || (await this.api.futuresExchangeInfo());
+        }
 
-        const instrument = this.info.symbols.find((item) => item.symbol === ticker);
+        const instrument = info.symbols.find((item) => item.symbol === ticker);
 
         if (!prices[ticker] || !instrument) {
-            throw 'Unknown instrument';
+            throw new DebutError(ErrorEnvironment.Transport, 'Unknown instrument');
         }
 
         const lotFilter = instrument.filters.find((filter) => filter.filterType === 'LOT_SIZE') as SymbolLotSizeFilter;
@@ -103,18 +116,26 @@ export class BinanceTransport implements BaseTransport {
             pipSize: orders.getMinIncrementValue(prices[ticker]),
             lot: 1,
             lotPrecision,
+            type: instrumentType,
+            id: instrumentId,
         };
 
-        this.instruments.set(ticker, data);
+        this.instruments.set(instrumentId, data);
 
         return data;
     }
 
-    public async subscribeToTick(ticker: string, handler: TickHandler, interval: TimeFrame) {
-        const unsubscribe = this.api.ws.candles(ticker, convertTimeFrame(interval), this.handlerAdapter(handler));
+    public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
+        // FIXME: SDK Typings bug ws.futuresCandles are not described
+        const method = opts.instrumentType === 'FUTURES' ? 'futuresCandles' : 'candles';
+        const unsubscribe = this.api.ws[method](
+            opts.ticker,
+            convertTimeFrame(opts.interval),
+            this.handlerAdapter(handler),
+        );
 
         return () => {
-            this.instruments.delete(ticker);
+            this.instruments.delete(this.getInstrumentId(opts));
 
             unsubscribe({
                 delay: 0,
@@ -124,41 +145,44 @@ export class BinanceTransport implements BaseTransport {
         };
     }
 
-    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
-        const { type, lots: requestedLots, sandbox, ticker, learning, currency } = order;
+    public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const { type, lots: requestedLots, sandbox, ticker, learning, currency, futures, margin } = order;
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
             return this.placeSandboxOrder(order);
         }
 
+        const instrumentId = this.getInstrumentId(opts);
+
         try {
-            const payload: NewOrder = {
+            const base: NewOrderMarketBase = {
                 quantity: String(requestedLots),
-                side: type === OrderType.BUY ? 'BUY' : 'SELL',
+                side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
                 symbol: ticker,
-                type: 'MARKET',
+                type: BinanceOrderType.MARKET,
             };
 
-            if (order.margin && order.close) {
-                payload.sideEffectType = 'AUTO_REPAY';
-            }
-
-            if (order.margin && !order.close) {
-                payload.sideEffectType = 'MARGIN_BUY';
-            }
-
-            let res: Order;
+            let res: Order | FuturesOrder;
 
             switch (true) {
-                case order.futures:
-                    res = await this.api.futuresOrder(payload);
+                case futures:
+                    const futuresPayload: NewFuturesOrder = {
+                        ...base,
+                    };
+
+                    res = await this.api.futuresOrder(futuresPayload);
                     break;
-                case order.margin:
-                    res = await this.api.marginOrder(payload);
+                case margin:
+                    const marginPayload: NewOrderMargin = {
+                        ...base,
+                        sideEffectType: order.close ? SideEffectType.AUTO_REPAY : SideEffectType.MARGIN_BUY,
+                    };
+
+                    res = await this.api.marginOrder(marginPayload);
                     break;
                 default:
-                    res = await this.api.order(payload);
+                    res = await this.api.order(base);
             }
 
             if (badStatus.includes(res.status)) {
@@ -175,26 +199,32 @@ export class BinanceTransport implements BaseTransport {
             let price = 0;
             let qty = 0;
 
-            res.fills.forEach((fill) => {
-                price += Number(fill.price);
-                qty += Number(fill.qty);
+            if ('fills' in res) {
+                res.fills.forEach((fill) => {
+                    price += Number(fill.price);
+                    qty += Number(fill.qty);
 
-                if (order.ticker.startsWith(fill.commissionAsset)) {
-                    fees += Number(fill.commission);
-                }
-            });
+                    if (order.ticker.startsWith(fill.commissionAsset)) {
+                        fees += Number(fill.commission);
+                    }
+                });
 
-            price = math.toFixed(price / res.fills.length, precision);
+                price = math.toFixed(price / res.fills.length, precision);
+            }
+
+            if ('avgPrice' in res) {
+                price = math.toFixed(Number(res.avgPrice), precision);
+            }
 
             const realQty = qty - fees;
-            let lots = this.prepareLots(realQty, ticker);
+            let lots = this.prepareLots(realQty, instrumentId);
             const isInteger = parseInt(`${lots}`) === lots;
             const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
 
             // Issue with rounding
             // Reduce lots when rounding is more than source amount
             while (lots > realQty && lots > 0) {
-                lots = this.prepareLots(lots - lotsRedunantValue, ticker);
+                lots = this.prepareLots(lots - lotsRedunantValue, instrumentId);
             }
 
             const feeAmount = order.price * order.lots * 0.001;
@@ -220,8 +250,8 @@ export class BinanceTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(ticker)) {
-                    return this.placeOrder(order);
+                if (this.instruments.has(instrumentId)) {
+                    return this.placeOrder(order, opts);
                 }
             }
 
@@ -243,11 +273,11 @@ export class BinanceTransport implements BaseTransport {
         return executed;
     }
 
-    public prepareLots(lots: number, ticker: string) {
-        const instrument = this.instruments.get(ticker);
+    public prepareLots(lots: number, instrumentId: string) {
+        const instrument = this.instruments.get(instrumentId);
 
         if (!instrument) {
-            throw `Unknown instument ticker ${ticker}`;
+            throw new DebutError(ErrorEnvironment.Transport, `Unknown instument id ${instrumentId}`);
         }
 
         // Zero precision means lots is integer number
@@ -269,6 +299,10 @@ export class BinanceTransport implements BaseTransport {
                 time: tick.startTime,
             });
         };
+    }
+
+    private getInstrumentId(opts: DebutOptions) {
+        return `${opts.ticker}:${opts.instrumentType}`;
     }
 }
 

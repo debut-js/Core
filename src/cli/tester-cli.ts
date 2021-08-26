@@ -1,7 +1,7 @@
 import { TesterTransport } from './tester/tester-transport';
 import { getHistory } from './tester/history';
 import { cli } from '@debut/plugin-utils';
-import { DebutMeta, DebutOptions, WorkingEnv } from '@debut/types';
+import { DebutMeta, DebutOptions, InstrumentType, WorkingEnv } from '@debut/types';
 
 type Params = {
     bot: string;
@@ -37,8 +37,10 @@ async function test(cfg: DebutOptions, meta: DebutMeta) {
             process.stdout.write('Genetic CLI error: Put config in bot cfgs.ts file');
         }
 
-        const { broker = 'tinkoff', ticker, interval } = cfg;
-        let ticks = await getHistory({ broker, ticker, interval, days, gapDays: gap });
+        const { broker = 'tinkoff', ticker, interval, futures } = cfg;
+        const instrumentType = futures ? InstrumentType.FUTURES : InstrumentType.SPOT;
+
+        let ticks = await getHistory({ broker, ticker, interval, days, gapDays: gap, instrumentType });
 
         if (meta.ticksFilter) {
             ticks = ticks.filter(meta.ticksFilter(cfg));
