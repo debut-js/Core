@@ -238,7 +238,7 @@ export class BinanceTransport implements BaseTransport {
 
             if (qty) {
                 const realQty = qty - fees;
-                lots = this.prepareLots(realQty, ticker);
+                lots = this.prepareLots(realQty, instrumentId);
                 const isInteger = parseInt(`${lots}`) === lots;
                 const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
 
