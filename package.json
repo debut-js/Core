@@ -26,7 +26,7 @@
         "genetic": "lib/cli/genetic.js"
     },
     "dependencies": {
-        "@debut/plugin-utils": "^1.0.16",
+        "@debut/plugin-utils": "^1.0.17",
         "@master-chief/alpaca": "^6.2.6",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
         "async-genetic": "^1.4.2",
@@ -36,7 +36,7 @@
         "@types/ws": "^7.4.7"
     },
     "devDependencies": {
-        "@debut/types": "^1.0.25-beta.0",
+        "@debut/types": "^1.1.0",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
         "@types/jest": "^27.0.1",
@@ -55,7 +55,7 @@
         "rollup-plugin-terser": "^7.0.2",
         "rollup-plugin-typescript2": "^0.30.0",
         "ts-jest": "^27.0.5",
-        "typescript": "^4.3.5"
+        "typescript": "^4.4.2"
     },
     "husky": {
         "hooks": {
