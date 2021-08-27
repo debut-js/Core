@@ -1,6 +1,6 @@
 {
     "name": "@debut/community-core",
-    "version": "2.4.7-beta.2",
+    "version": "2.5.0",
     "publishConfig": {
         "access": "public"
     },
