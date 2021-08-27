@@ -2,6 +2,7 @@ import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
+    DebutOptions,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -68,17 +69,12 @@ export class TinkoffTransport implements BaseTransport {
         this.api = new OpenAPI({ apiURL, socketURL, secretToken: token });
     }
 
-    public async getPrice(ticker: string) {
-        const instument = await this.getInstrument(ticker);
-        const orderbook = await this.api.orderbookGet({ figi: instument.figi, depth: 1 });
-        const price = orderbook.lastPrice || orderbook.closePrice;
+    public async getInstrument(opts: DebutOptions) {
+        const { ticker } = opts;
+        const instrumentId = this.getInstrumentId(opts);
 
-        return price;
-    }
-
-    public async getInstrument(ticker: string) {
-        if (this.instruments.has(ticker)) {
-            return this.instruments.get(ticker);
+        if (this.instruments.has(instrumentId)) {
+            return this.instruments.get(instrumentId);
         }
 
         const res = await this.api.searchOne({ ticker });
@@ -89,22 +85,25 @@ export class TinkoffTransport implements BaseTransport {
             lot: res.lot,
             pipSize: res.minPriceIncrement,
             lotPrecision: 1, // Tinkoff support only integer lots format
+            id: instrumentId,
+            type: 'SPOT', // Other types does not supported yet
         };
 
-        this.instruments.set(ticker, instrument);
+        this.instruments.set(instrumentId, instrument);
 
         return instrument;
     }
 
-    public async subscribeToTick(ticker: string, handler: TickHandler, interval?: TimeFrame) {
+    public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
         try {
-            const { figi } = await this.getInstrument(ticker);
+            const { interval } = opts;
+            const { figi } = await this.getInstrument(opts);
             const unsubscribe = this.api.candle({ figi, interval: convertTimeFrame(interval) }, (tick) => {
                 handler(transformTinkoffCandle(tick));
             });
 
             return () => {
-                this.instruments.delete(ticker);
+                this.instruments.delete(this.getInstrumentId(opts));
                 unsubscribe();
             };
         } catch (e) {
@@ -112,8 +111,10 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
-    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
+    public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { figi, type, lots, sandbox, learning } = order;
+        const instrumentId = this.getInstrumentId(opts);
+
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
@@ -151,8 +152,8 @@ export class TinkoffTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(order.ticker)) {
-                    return this.placeOrder(order);
+                if (this.instruments.has(instrumentId)) {
+                    return this.placeOrder(order, opts);
                 }
             }
 
@@ -176,6 +177,10 @@ export class TinkoffTransport implements BaseTransport {
 
     public prepareLots(lots: number) {
         return Math.floor(lots) || 1;
+    }
+
+    private getInstrumentId(opts: DebutOptions) {
+        return `${opts.ticker}:${opts.instrumentType}`;
     }
 
     // @deprecated

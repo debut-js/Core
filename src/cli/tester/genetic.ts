@@ -7,6 +7,7 @@ import {
     SchemaDescriptor,
     TestingPhase,
     DebutCore,
+    InstrumentType,
 } from '@debut/types';
 import { Genetic, GeneticOptions, Phenotype, Select } from 'async-genetic';
 import { getHistory } from './history';
@@ -64,14 +65,16 @@ export class GeneticWrapper {
                 ticker: opts.ticker,
             });
 
-            const { broker = 'tinkoff', ticker, interval } = opts;
+            const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
             const { days, gapDays } = this.options;
+
             let ticks = await getHistory({
                 broker,
                 ticker,
                 interval,
                 days,
                 gapDays,
+                instrumentType,
             });
 
             if (this.options.ticksFilter) {

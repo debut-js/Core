@@ -1,9 +1,9 @@
 import { date, file, promise } from '@debut/plugin-utils';
-import { Candle, TimeFrame } from '@debut/types';
+import { Candle, InstrumentType, TimeFrame } from '@debut/types';
 import { SingleBar, Presets } from 'cli-progress';
 import { DebutError, ErrorEnvironment } from '../../modules/error';
 import { requestAlpaca } from './history-providers/alpaca';
-import { requestBinance } from './history-providers/binance';
+import { createRequestBinance } from './history-providers/binance';
 import { requestTinkoff } from './history-providers/tinkoff';
 
 const DAY = 86400000;
@@ -11,6 +11,7 @@ export type RequestFn = (from: number, to: number, ticker: string, interval: Tim
 export interface HistoryOptions {
     broker: 'tinkoff' | 'binance' | 'alpaca';
     ticker: string;
+    instrumentType: InstrumentType;
     days: number;
     interval: TimeFrame;
     gapDays: number;
@@ -28,7 +29,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
             requestFn = requestTinkoff;
             break;
         case 'binance':
-            requestFn = requestBinance;
+            requestFn = createRequestBinance(options.instrumentType);
             break;
         case 'alpaca':
             requestFn = requestAlpaca;
@@ -45,7 +46,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
  * History validation is inside. If something is broken you will see error.
  */
 async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
-    const { ticker, days, interval, gapDays, broker, noProgress = false } = options;
+    const { ticker, days, interval, gapDays, broker, noProgress = false, instrumentType } = options;
     const reqs = [];
     const now = new Date();
     const stamp = gapDays ? roundDay(now.getTime()) : now.getTime();
@@ -70,7 +71,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
                 chunkStart = from;
             }
 
-            reqs.push(createRequest(broker, ticker, interval, from, to, requestFn));
+            reqs.push(createRequest(broker, ticker, interval, from, to, instrumentType, requestFn));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -113,11 +114,13 @@ async function createRequest(
     interval: TimeFrame,
     from: number,
     to: number,
+    instrumentType: InstrumentType,
     requestFn: RequestFn,
 ) {
     const validFrom = from / 100000;
     const validTo = to / 100000;
-    const path = `history/${broker}/${ticker}/${interval}/${validFrom}-${validTo}.txt`;
+    const subfolder = instrumentType === 'FUTURES' ? '/futures/' : '';
+    const path = `history/${broker}/${subfolder}${ticker}/${interval}/${validFrom}-${validTo}.txt`;
     const historyFile = file.readFile(path);
 
     if (validFrom !== ~~validFrom) {

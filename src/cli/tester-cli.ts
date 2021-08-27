@@ -1,7 +1,7 @@
 import { TesterTransport } from './tester/tester-transport';
 import { getHistory } from './tester/history';
 import { cli } from '@debut/plugin-utils';
-import { DebutMeta, DebutOptions, WorkingEnv } from '@debut/types';
+import { DebutMeta, DebutOptions, InstrumentType, WorkingEnv } from '@debut/types';
 
 type Params = {
     bot: string;
@@ -27,24 +27,32 @@ const schema: cli.BotData | null = cli.getBotData(bot);
     test(cfg, meta);
 })();
 
-async function test(cfg: DebutOptions, meta: DebutMeta) {
+async function test(opts: DebutOptions, meta: DebutMeta) {
     try {
-        const transport = new TesterTransport({ ohlc, comission: cfg.fee, broker: cfg.broker, ticker: cfg.ticker });
-        const bot = await meta.create(transport, cfg, WorkingEnv.tester);
+        const transport = new TesterTransport({ ohlc, comission: opts.fee, broker: opts.broker, ticker: opts.ticker });
+        const bot = await meta.create(transport, opts, WorkingEnv.tester);
         // const logger = new TesterLogger(transport);
 
-        if (!cfg) {
+        if (!opts) {
             process.stdout.write('Genetic CLI error: Put config in bot cfgs.ts file');
         }
 
-        const { broker = 'tinkoff', ticker, interval } = cfg;
-        let ticks = await getHistory({ broker, ticker, interval, days, gapDays: gap });
+        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
+
+        let ticks = await getHistory({
+            broker,
+            ticker,
+            interval,
+            days,
+            gapDays: gap,
+            instrumentType,
+        });
 
         if (meta.ticksFilter) {
-            ticks = ticks.filter(meta.ticksFilter(cfg));
+            ticks = ticks.filter(meta.ticksFilter(opts));
         }
 
-        console.log('\n---- Tinkoff [' + cfg.ticker + '] ----\n');
+        console.log('\n---- Tinkoff [' + opts.ticker + '] ----\n');
         console.log('Tested in ', ticks.length, ' candles...');
         transport.setTicks(ticks);
         await bot.start();

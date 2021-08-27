@@ -3,6 +3,7 @@ export enum ErrorEnvironment {
     Genetic,
     History,
     Core,
+    Transport,
 }
 
 export class DebutError {
@@ -23,5 +24,9 @@ export class DebutError {
             default:
                 return 'Debut unknown error:';
         }
+    }
+
+    toString() {
+        return this.message;
     }
 }
