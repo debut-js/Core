@@ -247,13 +247,10 @@ export class BinanceTransport implements BaseTransport {
                 while (lots > realQty && lots > 0) {
                     lots = this.prepareLots(lots - lotsRedunantValue, instrumentId);
                 }
-            }
-
-            if ('executedQty' in res) {
+            } else if ('executedQty' in res) {
                 lots = Number(res.executedQty);
             }
 
-            lots = this.prepareLots(lots, instrumentId);
             const feeAmount = order.price * order.lots * 0.001;
             const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
