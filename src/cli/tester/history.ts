@@ -86,7 +86,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
             progress?.update(progressValue);
             from = to;
         } catch (e: unknown | DebutError) {
-            if (e instanceof DebutError) {
+            if (e instanceof DebutError && !progress) {
                 console.log(e);
             }
 
