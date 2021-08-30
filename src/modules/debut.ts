@@ -239,7 +239,9 @@ export abstract class Debut implements DebutCore {
 
             return order;
         } catch (e) {
-            console.log(new Date().toISOString(), 'Ошибка закрытия ордера', e);
+            console.log(
+                new DebutError(ErrorEnvironment.Core, `${new Date().toISOString()} Ошибка закрытия ордера, ${e}`),
+            );
 
             const idx = this.orders.indexOf(closing);
 

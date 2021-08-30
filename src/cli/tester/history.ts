@@ -87,7 +87,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
             from = to;
         } catch (e: unknown | DebutError) {
             if (e instanceof DebutError) {
-                return Promise.reject(e.message);
+                console.log(e);
             }
 
             tries++;
