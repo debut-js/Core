@@ -28,7 +28,12 @@ export abstract class Debut implements DebutCore {
     private pluginDriver: PluginDriver;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
-        const defaultOptions: Partial<DebutOptions> = { instrumentType: 'SPOT', fee: 0.0003 };
+        const defaultOptions: Partial<DebutOptions> = {
+            instrumentType: 'SPOT',
+            fee: 0.0003,
+            lotsMultiplier: 1,
+            equityLevel: 1,
+        };
 
         this.transport = transport;
         this.pluginDriver = new PluginDriver(this);
@@ -110,17 +115,8 @@ export abstract class Debut implements DebutCore {
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
         const { c: price, time } = this.currentCandle;
-        const {
-            amount,
-            lotsMultiplier = 1,
-            equityLevel = 1,
-            sandbox,
-            currency,
-            interval,
-            broker,
-            margin,
-            instrumentType,
-        } = this.opts;
+        const { amount, lotsMultiplier, equityLevel, sandbox, currency, interval, broker, margin, instrumentType } =
+            this.opts;
         const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, id);
@@ -182,10 +178,10 @@ export abstract class Debut implements DebutCore {
         }
 
         const { c: price, time } = this.currentCandle;
-        const { currency, interval, broker, margin, lotsMultiplier, equityLevel } = this.opts;
-        const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;
+        const { currency, interval, broker, margin } = this.opts;
+        const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
         const type = orders.inverseType(closing.type);
-        const lots = this.transport.prepareLots(closing.executedLots * lotSize, id);
+        const lots = closing.executedLots;
         const pendingOrder: PendingOrder = {
             cid: Date.now(),
             broker,
@@ -207,8 +203,6 @@ export abstract class Debut implements DebutCore {
             futures: closing.futures,
             time,
             margin,
-            lotsMultiplier,
-            equityLevel,
         };
 
         closing.processing = true;
