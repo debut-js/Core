@@ -139,6 +139,7 @@ export abstract class Debut implements DebutCore {
             time,
             margin,
             futures: instrumentType === 'FUTURES',
+            instrumentType,
             lotsMultiplier,
             equityLevel,
         };
@@ -201,6 +202,7 @@ export abstract class Debut implements DebutCore {
             sandbox: closing.sandbox,
             learning: closing.learning,
             futures: closing.futures,
+            instrumentType: closing.instrumentType,
             time,
             margin,
         };
@@ -276,11 +278,22 @@ export abstract class Debut implements DebutCore {
 
     private handler = async (tick: Candle) => {
         const change = this.currentCandle && this.currentCandle.time !== tick.time;
-        const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onTick>(PluginHook.onTick, tick);
+        const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeTick>(PluginHook.onBeforeTick, tick);
 
         if (skip) {
             return;
         }
+
+        /**
+         * Apply price before tick handling, because onTick may contains closeAll, or opening order
+         * that mean order price should be equal to this.currentCandle[0].c for correct working
+         */
+        if (!change) {
+            this.candles[0] = tick;
+        }
+
+        await this.pluginDriver.asyncReduce<PluginHook.onTick>(PluginHook.onTick, tick);
+        await this.onTick(tick);
 
         if (change) {
             // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
@@ -289,11 +302,7 @@ export abstract class Debut implements DebutCore {
             await this.onCandle(prevTick);
             await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
             this.updateCandles(tick);
-        } else {
-            this.candles[0] = tick;
         }
-
-        await this.onTick(tick);
     };
 
     /**
