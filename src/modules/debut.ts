@@ -290,12 +290,7 @@ export abstract class Debut implements DebutCore {
          */
         if (!change) {
             this.candles[0] = tick;
-        }
-
-        await this.pluginDriver.asyncReduce<PluginHook.onTick>(PluginHook.onTick, tick);
-        await this.onTick(tick);
-
-        if (change) {
+        } else {
             // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
             const prevTick = this.currentCandle;
             await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
@@ -303,6 +298,10 @@ export abstract class Debut implements DebutCore {
             await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
             this.updateCandles(tick);
         }
+
+        // Hooks onTick calling later, after candles has been updated
+        await this.pluginDriver.asyncReduce<PluginHook.onTick>(PluginHook.onTick, tick);
+        await this.onTick(tick);
     };
 
     /**
