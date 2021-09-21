@@ -1,8 +1,11 @@
 import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
+import { DebutOptions, DepthOrder } from '@debut/types';
 import {
     BaseTransport,
     Candle,
     DebutOptions,
+    DepthHandler,
+    DepthOptions,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -15,6 +18,8 @@ import OpenAPI, {
     Candle as TinkoffCandle,
     CandleStreaming,
     CandleResolution,
+    Depth,
+    OrderbookStreaming,
 } from '@tinkoff/invest-openapi-js-sdk';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
@@ -111,6 +116,15 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
+    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+        const instrument = await this.getInstrument(opts as DebutOptions);
+        const unsubscribe = this.api.orderbook({ figi: instrument.figi }, this.depthAdapter(handler));
+
+        return () => {
+            unsubscribe();
+        };
+    }
+
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { figi, type, lots, sandbox, learning } = order;
         const instrumentId = this.getInstrumentId(opts);
@@ -181,6 +195,22 @@ export class TinkoffTransport implements BaseTransport {
 
     private getInstrumentId(opts: DebutOptions) {
         return `${opts.ticker}:${opts.instrumentType}`;
+    }
+
+    private depthAdapter(handler: DepthHandler) {
+        return (depth: OrderbookStreaming) => {
+            const bids: DepthOrder[] = depth.bids.map((item) => ({
+                price: item[0],
+                qty: item[1],
+            }));
+
+            const asks: DepthOrder[] = depth.asks.map((item) => ({
+                price: item[0],
+                qty: item[1],
+            }));
+
+            handler({ bids, asks });
+        };
     }
 
     // @deprecated

@@ -2,6 +2,8 @@ import { cli, date, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
+    DepthHandler,
+    DepthOptions,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -12,6 +14,7 @@ import {
 import { Bar, AlpacaClient, AlpacaStream } from '@master-chief/alpaca';
 import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
 import { DebutOptions } from '@debut/types';
+import { DebutError, ErrorEnvironment } from '../modules/error';
 
 export type AlpacaTransportArgs = {
     atoken: string;
@@ -172,6 +175,13 @@ export class AlpacaTransport implements BaseTransport {
         } catch (e) {
             debug.logDebug(e);
         }
+    }
+
+    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+        throw new DebutError(
+            ErrorEnvironment.Transport,
+            'Alpaca transport does not supported orderbook subscribtion yet!',
+        );
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {

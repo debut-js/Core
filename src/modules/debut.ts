@@ -6,6 +6,7 @@ import {
     Candle,
     DebutCore,
     DebutOptions,
+    Depth,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -305,6 +306,15 @@ export abstract class Debut implements DebutCore {
     };
 
     /**
+     * Handler of orderbook socket events
+     */
+    private orderbookHandler = async (depth: Depth) => {
+        // TODO: Add new hook for plugins
+        // await this.pluginDriver.asyncReduce<PluginHook.onDepth>(PluginHook.onDepth, depth);
+        await this.onDepth(depth);
+    };
+
+    /**
      * Candle collection managment
      */
     private updateCandles(candle: Candle) {
@@ -366,4 +376,5 @@ export abstract class Debut implements DebutCore {
     protected async onOrderOpened(order: ExecutedOrder): Promise<void> {}
     protected async onCandle(candle: Candle): Promise<void> {}
     protected async onTick(tick: Candle): Promise<void> {}
+    protected async onDepth(depth: Depth): Promise<void> {}
 }

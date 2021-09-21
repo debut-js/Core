@@ -9,10 +9,14 @@ import {
     PendingOrder,
     TickHandler,
     TimeFrame,
+    DepthHandler,
+    DepthOptions,
+    DepthOrder,
 } from '@debut/types';
 import Binance, {
     Candle as BinanceCandle,
     CandleChartInterval,
+    Depth,
     ExchangeInfo,
     FuturesOrder,
     NewFuturesOrder,
@@ -22,10 +26,10 @@ import Binance, {
     Order,
     OrderSide,
     OrderType as BinanceOrderType,
+    PartialDepth,
     PositionSide,
     SideEffectType,
     SymbolLotSizeFilter,
-    TimeInForce,
 } from 'binance-api-node';
 
 /**
@@ -142,6 +146,19 @@ export class BinanceTransport implements BaseTransport {
         return () => {
             this.instruments.delete(this.getInstrumentId(opts));
 
+            unsubscribe({
+                delay: 0,
+                fastClose: true,
+                keepClosed: true,
+            });
+        };
+    }
+
+    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+        const method = opts.instrumentType === 'FUTURES' ? 'futuresDepth' : 'depth';
+        const unsubscribe = this.api.ws[method](opts.ticker, this.depthAdapter(handler));
+
+        return () => {
             unsubscribe({
                 delay: 0,
                 fastClose: true,
@@ -322,6 +339,22 @@ export class BinanceTransport implements BaseTransport {
                 v: parseFloat(tick.volume),
                 time: tick.startTime,
             });
+        };
+    }
+
+    private depthAdapter(handler: DepthHandler) {
+        return (depth: Depth) => {
+            const bids: DepthOrder[] = depth.bidDepth.map((item) => ({
+                price: parseFloat(item.price),
+                qty: parseFloat(item.quantity),
+            }));
+
+            const asks: DepthOrder[] = depth.askDepth.map((item) => ({
+                price: parseFloat(item.price),
+                qty: parseFloat(item.quantity),
+            }));
+
+            handler({ bids, asks });
         };
     }
 
