@@ -314,8 +314,7 @@ export abstract class Debut implements DebutCore {
      * Handler of orderbook socket events
      */
     private orderbookHandler = async (depth: Depth) => {
-        // TODO: Add new hook for plugins
-        // await this.pluginDriver.asyncReduce<PluginHook.onDepth>(PluginHook.onDepth, depth);
+        await this.pluginDriver.asyncReduce<PluginHook.onDepth>(PluginHook.onDepth, depth);
         await this.onDepth(depth);
     };
 
