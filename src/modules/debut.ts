@@ -27,6 +27,7 @@ export abstract class Debut implements DebutCore {
     protected plugins: unknown;
     protected candles: Candle[] = [];
     private pluginDriver: PluginDriver;
+    private orderBookSubscribtion: Promise<() => void> | null;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
         const defaultOptions: Partial<DebutOptions> = {
@@ -44,7 +45,7 @@ export abstract class Debut implements DebutCore {
 
         // If method exists
         if (this.onDepth.toString() !== 'async onDepth(e){}') {
-            this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
+            this.orderBookSubscribtion = this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
         }
     }
 
@@ -68,6 +69,18 @@ export abstract class Debut implements DebutCore {
     public registerPlugins(plugins: PluginInterface[]) {
         this.pluginDriver.register(plugins);
         this.plugins = this.pluginDriver.getPublicAPI();
+
+        // Detect plugins with onDepth hooks
+        if (!this.orderBookSubscribtion) {
+            for (let i = 0; i < plugins.length; i++) {
+                const plugin = plugins[i];
+
+                if ('onDepth' in plugin) {
+                    this.orderBookSubscribtion = this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
+                    break;
+                }
+            }
+        }
     }
 
     /**
