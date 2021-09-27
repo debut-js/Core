@@ -3,7 +3,6 @@ import {
     BaseTransport,
     Candle,
     DepthHandler,
-    DepthOptions,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -177,7 +176,7 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+    public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler): Promise<() => void> {
         throw new DebutError(
             ErrorEnvironment.Transport,
             'Alpaca transport does not supported orderbook subscribtion yet!',

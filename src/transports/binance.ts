@@ -10,10 +10,10 @@ import {
     TickHandler,
     TimeFrame,
     DepthHandler,
-    DepthOptions,
     DepthOrder,
 } from '@debut/types';
 import Binance, {
+    BidDepth,
     Candle as BinanceCandle,
     CandleChartInterval,
     Depth,
@@ -154,7 +154,7 @@ export class BinanceTransport implements BaseTransport {
         };
     }
 
-    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+    public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
         const method = opts.instrumentType === 'FUTURES' ? 'futuresDepth' : 'depth';
         const unsubscribe = this.api.ws[method](opts.ticker, this.depthAdapter(handler));
 
@@ -343,16 +343,26 @@ export class BinanceTransport implements BaseTransport {
     }
 
     private depthAdapter(handler: DepthHandler) {
-        return (depth: Depth) => {
-            const bids: DepthOrder[] = depth.bidDepth.map((item) => ({
-                price: parseFloat(item.price),
-                qty: parseFloat(item.quantity),
-            }));
+        function migrateData(depth: BidDepth, result: DepthOrder[]) {
+            const price = parseFloat(depth.price);
+            const qty = parseFloat(depth.quantity);
 
-            const asks: DepthOrder[] = depth.askDepth.map((item) => ({
-                price: parseFloat(item.price),
-                qty: parseFloat(item.quantity),
-            }));
+            if (qty !== 0) {
+                result.push({ price, qty });
+            }
+        }
+
+        return (depth: Depth) => {
+            const bids: DepthOrder[] = [];
+            const asks: DepthOrder[] = [];
+
+            depth.bidDepth.forEach((item) => {
+                migrateData(item, bids);
+            });
+
+            depth.askDepth.forEach((item) => {
+                migrateData(item, asks);
+            });
 
             handler({ bids, asks });
         };

@@ -41,6 +41,11 @@ export abstract class Debut implements DebutCore {
         this.opts = { ...defaultOptions, ...opts };
         this.dispose = () => null;
         this.validateConfig();
+
+        // If method exists
+        if (this.onDepth.toString() !== 'async onDepth(e){}') {
+            this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
+        }
     }
 
     /**

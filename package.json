@@ -29,11 +29,11 @@
         "@debut/plugin-utils": "^1.0.20",
         "@master-chief/alpaca": "^6.3.1",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
+        "@types/ws": "^7.4.7",
         "async-genetic": "^1.4.2",
         "binance-api-node": "0.11.13",
         "cli-progress": "^3.9.0",
-        "node-fetch": "^3.0.0",
-        "@types/ws": "^7.4.7"
+        "node-fetch": "^3.0.0"
     },
     "devDependencies": {
         "@debut/types": "^1.1.3",

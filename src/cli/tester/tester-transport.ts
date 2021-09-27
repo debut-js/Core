@@ -10,6 +10,7 @@ import {
     PendingOrder,
 } from '@debut/types';
 import { generateOHLC } from './history';
+import { DepthHandler } from '@debut/types';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -139,6 +140,10 @@ export class TesterTransport implements BaseTransport {
                 this.handlers.splice(idx, 1);
             }
         });
+    }
+
+    public subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
+        return null;
     }
 
     public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {

@@ -1,11 +1,10 @@
 import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
-import { DebutOptions, DepthOrder } from '@debut/types';
 import {
+    DepthOrder,
     BaseTransport,
     Candle,
     DebutOptions,
     DepthHandler,
-    DepthOptions,
     ExecutedOrder,
     Instrument,
     OrderType,
@@ -116,7 +115,7 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
-    public async orderBookSubscribe(opts: DepthOptions, handler: DepthHandler) {
+    public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
         const instrument = await this.getInstrument(opts as DebutOptions);
         const unsubscribe = this.api.orderbook({ figi: instrument.figi }, this.depthAdapter(handler));
 
