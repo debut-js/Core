@@ -176,7 +176,7 @@ export class TinkoffTransport implements BaseTransport {
     }
 
     public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * opts.fee;
+        const feeAmount = order.price * order.lots * (opts.fee / 100);
         const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,

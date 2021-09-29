@@ -302,7 +302,7 @@ export class BinanceTransport implements BaseTransport {
     }
 
     public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * opts.fee;
+        const feeAmount = order.price * order.lots * (opts.fee / 100);
         const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {
             ...order,

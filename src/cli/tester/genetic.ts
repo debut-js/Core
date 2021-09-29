@@ -60,7 +60,6 @@ export class GeneticWrapper {
             this.baseOpts = opts;
             this.transport = new TesterTransport({
                 ohlc: this.options.ohlc,
-                comission: opts.fee,
                 broker: opts.broker,
                 ticker: opts.ticker,
             });

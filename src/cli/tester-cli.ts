@@ -29,7 +29,7 @@ const schema: cli.BotData | null = cli.getBotData(bot);
 
 async function test(opts: DebutOptions, meta: DebutMeta) {
     try {
-        const transport = new TesterTransport({ ohlc, comission: opts.fee, broker: opts.broker, ticker: opts.ticker });
+        const transport = new TesterTransport({ ohlc, broker: opts.broker, ticker: opts.ticker });
         const bot = await meta.create(transport, opts, WorkingEnv.tester);
         // const logger = new TesterLogger(transport);
 

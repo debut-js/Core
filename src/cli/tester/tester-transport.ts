@@ -14,7 +14,6 @@ import { DepthHandler } from '@debut/types';
 
 type TesterTransportOptions = {
     ticker: string;
-    comission: number;
     ohlc?: boolean;
     broker?: string;
 };
@@ -37,7 +36,6 @@ export class TesterTransport implements BaseTransport {
     constructor(opts: TesterTransportOptions) {
         this.opts = opts;
         this.reset();
-        this.fee = this.opts.comission / 100 || 0.0003;
         this.tickPhases = {
             before: [],
             main: [],
@@ -147,7 +145,7 @@ export class TesterTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * opts.fee;
+        const feeAmount = order.price * order.lots * (opts.fee / 100);
         const commission = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,
