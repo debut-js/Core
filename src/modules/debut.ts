@@ -133,7 +133,14 @@ export abstract class Debut implements DebutCore {
      * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
-        const { c: price, time } = this.currentCandle;
+        const { c: price, time } = this.currentCandle || {};
+
+        if (!price) {
+            throw this.createCoreError(
+                'Not enought price data for create order. this.start() should called before order create',
+            );
+        }
+
         const { amount, lotsMultiplier, equityLevel, sandbox, currency, interval, broker, margin, instrumentType } =
             this.opts;
         const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;

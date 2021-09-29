@@ -190,7 +190,7 @@ export class AlpacaTransport implements BaseTransport {
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order);
+            return this.placeSandboxOrder(order, opts);
         }
 
         try {
@@ -240,8 +240,8 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * 0.0005;
+    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const feeAmount = order.price * order.lots * opts.fee;
         const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {
             ...order,

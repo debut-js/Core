@@ -172,7 +172,7 @@ export class BinanceTransport implements BaseTransport {
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order);
+            return this.placeSandboxOrder(order, opts);
         }
 
         const instrumentId = this.getInstrumentId(opts);
@@ -301,8 +301,8 @@ export class BinanceTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * 0.002;
+    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const feeAmount = order.price * order.lots * opts.fee;
         const commission = { value: feeAmount, currency: order.currency };
         const executed: ExecutedOrder = {
             ...order,

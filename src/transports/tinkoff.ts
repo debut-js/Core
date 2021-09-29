@@ -131,7 +131,7 @@ export class TinkoffTransport implements BaseTransport {
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order);
+            return this.placeSandboxOrder(order, opts);
         }
 
         try {
@@ -175,8 +175,8 @@ export class TinkoffTransport implements BaseTransport {
         }
     }
 
-    public async placeSandboxOrder(order: PendingOrder): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * 0.0005;
+    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const feeAmount = order.price * order.lots * opts.fee;
         const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,

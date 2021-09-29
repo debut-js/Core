@@ -146,8 +146,8 @@ export class TesterTransport implements BaseTransport {
         return null;
     }
 
-    public async placeOrder(order: PendingOrder): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * this.fee;
+    public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const feeAmount = order.price * order.lots * opts.fee;
         const commission = { value: feeAmount, currency: 'USD' };
         const executed: ExecutedOrder = {
             ...order,
@@ -159,8 +159,8 @@ export class TesterTransport implements BaseTransport {
         return executed;
     }
 
-    public placeSandboxOrder(order: PendingOrder) {
-        return this.placeOrder(order);
+    public placeSandboxOrder(order: PendingOrder, opts: DebutOptions) {
+        return this.placeOrder(order, opts);
     }
 
     public async getUsdBalance() {
