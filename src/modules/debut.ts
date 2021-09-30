@@ -75,7 +75,7 @@ export abstract class Debut implements DebutCore {
             for (let i = 0; i < plugins.length; i++) {
                 const plugin = plugins[i];
 
-                if ('onDepth' in plugin) {
+                if (plugin && 'onDepth' in plugin) {
                     this.orderBookSubscribtion = this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
                     break;
                 }
