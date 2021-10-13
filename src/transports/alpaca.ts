@@ -1,4 +1,4 @@
-import { cli, date, debug, math, orders, promise } from '@debut/plugin-utils';
+import { date, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
@@ -62,17 +62,14 @@ export class AlpacaTransport implements BaseTransport {
     protected stream: AlpacaStream;
     private instruments: Map<string, Instrument> = new Map();
 
-    constructor() {
-        const tokens = cli.getTokens();
-        const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
-        const key = tokens[atoken];
-        const secret = tokens[asecret];
+    constructor(key: string, secret: string) {
+        if (!key || !secret) {
+            throw new DebutError(ErrorEnvironment.Transport, 'key or secret are incorrect');
+        }
+
         this.api = new AlpacaClient({ credentials: { key, secret } });
         this.stream = new AlpacaStream({
-            credentials: {
-                key: key,
-                secret: secret,
-            },
+            credentials: { key, secret },
             type: 'market_data', // or "account"
             source: 'iex', // or "sip" depending on your subscription
         });

@@ -1,4 +1,4 @@
-import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
+import { debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     DepthOrder,
     BaseTransport,
@@ -17,9 +17,9 @@ import OpenAPI, {
     Candle as TinkoffCandle,
     CandleStreaming,
     CandleResolution,
-    Depth,
     OrderbookStreaming,
 } from '@tinkoff/invest-openapi-js-sdk';
+import { DebutError, ErrorEnvironment } from '../modules/error';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
@@ -51,24 +51,13 @@ export class TinkoffTransport implements BaseTransport {
     protected api: OpenAPI;
     private instruments: Map<string, Instrument> = new Map();
 
-    constructor() {
-        let { token = 'tinkoff', proxyPort } = cli.getArgs<TinkoffTransportArgs>();
-        const tokens = cli.getTokens();
-
-        proxyPort = proxyPort && Number(proxyPort);
-        token = tokens[token];
-
+    constructor(token: string) {
         if (!token) {
-            throw new Error('invalid tinkoff transport start params');
+            throw new DebutError(ErrorEnvironment.Transport, 'token is incorrect');
         }
 
         const apiURL = 'https://api-invest.tinkoff.ru/openapi';
         let socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
-
-        // Connect to proxy server instead of tinkoff proxy direct connection
-        if (proxyPort) {
-            socketURL = `ws://localhost:${proxyPort}`;
-        }
 
         this.api = new OpenAPI({ apiURL, socketURL, secretToken: token });
     }

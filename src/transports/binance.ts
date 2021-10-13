@@ -1,4 +1,4 @@
-import { cli, debug, math, orders, promise } from '@debut/plugin-utils';
+import { debug, math, orders, promise } from '@debut/plugin-utils';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import {
     BaseTransport,
@@ -26,7 +26,6 @@ import Binance, {
     Order,
     OrderSide,
     OrderType as BinanceOrderType,
-    PartialDepth,
     PositionSide,
     SideEffectType,
     SymbolLotSizeFilter,
@@ -60,9 +59,6 @@ import Binance, {
 }
  */
 
-/** Binance cli arguments */
-type BinanceTransportArgs = { btoken: string; bsecret: string };
-
 const badStatus = ['CANCELED', 'EXPIRED', 'PENDING_CANCEL', 'REJECTED'];
 export class BinanceTransport implements BaseTransport {
     public api: ReturnType<typeof Binance>;
@@ -71,22 +67,13 @@ export class BinanceTransport implements BaseTransport {
     protected futuresInfo: ExchangeInfo;
     protected hedgeMode = false;
 
-    constructor() {
-        const tokens = cli.getTokens();
-        let { btoken = 'binance', bsecret = 'binanceSecret' } = cli.getArgs<BinanceTransportArgs>();
-
-        btoken = tokens[btoken];
-        bsecret = tokens[bsecret];
-
-        if (!btoken || !bsecret) {
-            throw new DebutError(ErrorEnvironment.Transport, 'Binance API token and secret are required!');
+    constructor(apiKey: string, apiSecret: string) {
+        if (!apiKey || !apiSecret) {
+            throw new DebutError(ErrorEnvironment.Transport, 'apiKey or apiSecret are incorrect');
         }
 
         // Authenticated client, can make signed calls
-        this.api = Binance({
-            apiKey: btoken,
-            apiSecret: bsecret,
-        });
+        this.api = Binance({ apiKey, apiSecret });
     }
 
     public async getInstrument(opts: DebutOptions) {
