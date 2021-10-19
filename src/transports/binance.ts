@@ -255,7 +255,7 @@ export class BinanceTransport implements BaseTransport {
                 lots = Number(res.executedQty);
             }
 
-            const feeAmount = order.price * order.lots * 0.001;
+            const feeAmount = fees && isFinite(fees) ? fees : order.price * order.lots * (opts.fee / 100);
             const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
                 ...order,
