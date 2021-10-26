@@ -74,6 +74,8 @@ export class TesterTransport implements BaseTransport {
             currency: 'USD',
             id: instrumentId,
             type: opts.instrumentType,
+            minNotional: 0,
+            minQuantity: 0,
         } as Instrument;
     }
 
