@@ -28,7 +28,6 @@ import Binance, {
     OrderType as BinanceOrderType,
     PositionSide,
     SideEffectType,
-    SymbolLotSizeFilter,
 } from 'binance-api-node';
 
 /**
@@ -101,15 +100,30 @@ export class BinanceTransport implements BaseTransport {
             throw new DebutError(ErrorEnvironment.Transport, 'Unknown instrument');
         }
 
-        const lotFilter = instrument.filters.find((filter) => filter.filterType === 'LOT_SIZE') as SymbolLotSizeFilter;
+        let minQuantity = 0;
+        let minNotional = 0;
+
+        for (const filter of instrument.filters) {
+            if (filter.filterType === 'LOT_SIZE') {
+                minQuantity = Number(filter.minQty);
+            } else if (filter.filterType === 'MIN_NOTIONAL') {
+                minNotional = Number(filter.minNotional);
+            }
+
+            if (minQuantity && minNotional) {
+                break;
+            }
+        }
+
         // 0.0000100 -> 0.00001
-        const minQty = Number(lotFilter.minQty);
-        const lotPrecision = minQty === 1 ? 0 : math.getPrecision(minQty);
+        const lotPrecision = minQuantity === 1 ? 0 : math.getPrecision(minQuantity);
 
         const data: Instrument = {
             figi: ticker,
             ticker: ticker,
             pipSize: orders.getMinIncrementValue(prices[ticker]),
+            minNotional,
+            minQuantity,
             lot: 1,
             lotPrecision,
             type: instrumentType,
@@ -139,6 +153,18 @@ export class BinanceTransport implements BaseTransport {
                 keepClosed: true,
             });
         };
+    }
+
+    public setleverage(instrumentId: string, leverage: number = 20) {
+        const instrument = this.instruments.get(instrumentId);
+
+        if (!instrument) {
+            throw new DebutError(ErrorEnvironment.Transport, `Unknown instument id ${instrumentId}`);
+        }
+
+        if (instrument.type === 'FUTURES') {
+            return this.api.futuresLeverage({ symbol: instrument.ticker, leverage });
+        }
     }
 
     public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {

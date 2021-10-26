@@ -110,6 +110,8 @@ export class AlpacaTransport implements BaseTransport {
             ticker: res.symbol,
             lot: 1, // lot is 1 always
             pipSize,
+            minNotional: 0, // does not provided from api
+            minQuantity: 0, // does not provided from api
             lotPrecision: 1, // support only integer lots format
             type: 'SPOT',
             id: instrumentId,

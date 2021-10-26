@@ -36,7 +36,7 @@
         "node-fetch": "^3.0.0"
     },
     "devDependencies": {
-        "@debut/types": "^1.2.1",
+        "@debut/types": "^1.2.2",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
         "@types/jest": "^27.0.1",
