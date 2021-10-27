@@ -189,7 +189,7 @@ export abstract class Debut implements DebutCore {
 
             return order;
         } catch (e) {
-            console.warn(this.createCoreError(`${new Date().toISOString()} Error Order Place ${e.message}`));
+            console.warn(this.createCoreError(`${new Date().toISOString()} Order not opened ${e.message}`));
             this.removePendingOrder(pendingOrder);
         }
     }
@@ -261,9 +261,7 @@ export abstract class Debut implements DebutCore {
 
             return order;
         } catch (e) {
-            console.log(
-                new DebutError(ErrorEnvironment.Core, `${new Date().toISOString()} Ошибка закрытия ордера, ${e}`),
-            );
+            console.warn(new DebutError(ErrorEnvironment.Core, `${new Date().toISOString()} Order not closed, ${e}`));
 
             const idx = this.orders.indexOf(closing);
 
