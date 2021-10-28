@@ -1,10 +1,9 @@
-
 ![npm](https://img.shields.io/npm/v/@debut/community-core)
 ![npm](https://img.shields.io/npm/dm/@debut/community-core)
 ![NPM](https://img.shields.io/npm/l/@debut/community-core)
 [![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dbusinessduck%26type%3Dpatrons%26suffix%3DEnterprise%2520users&style=flat)](https://patreon.com/businessduck)
-[![Telegram crypto trading orders stream](https://badgen.net/badge/telegram/crypt:stream/blue?icon=telegram)](https://t.me/debutjs)
-[![Telegram stocks trading orders stream](https://badgen.net/badge/telegram/stocks:stream/cyan?icon=telegram)](https://t.me/debutjs2)
+[![Telegram crypto trading orders stream](https://badgen.net/badge/tg/crypt:stream/blue?icon=telegram)](https://t.me/debutjs)
+[![Telegram stocks trading orders stream](https://badgen.net/badge/tg/stocks:stream/cyan?icon=telegram)](https://t.me/debutjs2)
 # Trading Strategies Based on Debut/Community Edition
 
 Debut is an ecosystem for developing and launching trading strategies. An analogue of the well-known `ZenBot`, but with much more flexible possibilities for constructing strategies. All you need to do is come up with and describe the entry points to the market and connect the necessary [plugins](https://github.com/debut-js/Plugins) to work. Everything else is a matter of technology: **genetic algorithms** - will help you choose the most effective parameters for the strategy (period, stops, and others), **ticker selection module** - will help you find an asset suitable for the strategy (token or share), on which it will work best.
@@ -14,27 +13,23 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
 ## Available for
 
 <p>
-    <img src="/.github/assets/alpaca.png" alt="Alpaca API" width="64">
-    <img src="/.github/assets/binance.png" alt="Binance API" width="64">
-    <img src="/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
-    <a href="https://www.patreon.com/bePatron?u=57560983"><img src="/.github/assets/buy2.png" alt="Request implementation" width="64"></a>
+    <img src="https://github.com/debut-js/Core/blob/master/.github/assets/alpaca.png" alt="Alpaca API" width="64">
+    <img src="https://github.com/debut-js/Core/blob/master/.github/assets/binance.png" alt="Binance API" width="64">
+    <img src="https://github.com/debut-js/Core/blob/master/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
+    <a href="https://www.patreon.com/bePatron?u=57560983"><img src="https://github.com/debut-js/Core/blob/master/.github/assets/buy2.png" alt="Request implementation" width="64"></a>
 </p>
 
-## Premium access
-### @debut/enterprise-core
+## Community edition
+We believe in the power of the community! That is why we decided to publish the project. The community version is free, but it has some limitations in commercial use (income from trading startups is not commerce), as well as technical differences in testing strategies. Join the community, join **[developer chat](https://t.me/joinchat/Acu2sbLIy_c0OWIy)**
 
-<h5> Timeframe Aggregator </h5>
-This is a kernel module responsible for aggregating candlesticks `1min` ticks in any other available time periods.
-It allows you to create timeframes supported by `Debut` even if they are not supported by the broker. And also get access to a candlestick of any higher timeframe, for example, build daily support and resistance levels, take indicator readings from four hourly candles, and much more. Below is an example of registering access to a `day` timeframe.
+## Enterprise edition ($15/mo [buy now!](https://www.patreon.com/bePatron?u=57560983))
+The Enterprise version is a fully functional version of Debut, with a maximum of possibilities for emulating real market behavior.
 
-<h5> Advanced tick emulation </h5>
-Allows to emulate ticks in a test environment with maximum accuracy, by creating price changes based on `1min` ticks, split into open, high, low, close. To collect timeframes, the aggregation module into candles of any time interval is used.
+Aggregation of candles:
+All candles are aggregated from incoming data from shorter time periods. This allows you to get access to any timeframe on the fly with only 1 candle stream real by subscription. So you can get daily candles from 15 minute ones.
 
-
-<h5> Additional callbacks in plugins </h5>
-Additional callbacks are used in the premium version of Debut to expand the functionality of creating plugins. More details can be found in the plugins description section.
-
-The Enterprise version is a ready-made set of tools for "big guys", for those who are engaged in trade services or create strategies professionally. Everything is here! And this is all ready to work for you and to increase the speed of your development. **($15/mo [buy now!](https://www.patreon.com/bePatron?u=57560983))**
+Tick ​​emulation:
+On the basis of candlestick aggregation, a mechanism for filling candles of any timeframe from OHLC / OLHC ticks of 1-minute candles has been created. This allows you to create more than 60 price ticks in one 15-minute interval or 240 ticks inside each 1 hour candle.
 
 <table>
 <thead>
@@ -80,26 +75,7 @@ The Enterprise version is a ready-made set of tools for "big guys", for those wh
 <td align="center"> ❌ </td>
 <td align="center"> ✅ </td>
 </tr>
-<td> Report analyzer for `finder`. Creates screenshots from json files of reports and groups them according to efficiency </td>
-<td align="center"> ❌ </td>
-<td align="center"> ✅ </td>
-</tr>
 </tbody> </table>
-
-### Personal edition
-*Have no strategies from out of the box.*
-
-- Enterprise core inside!
-- Report with order screenshots and stats in to you messenger direct
-- Money management formula for strategy equity auto calculation
-- Fast genetic result analyser and viewer
-- Private chat support
-- Ready to start on VPS/VDS or cloud
-- Dashboard* [still in progress]
-
-### Business edition
-- Multiple tokens for easy client connection (signals for sale to you clients)
-- Legal use Debut for business
 
 ## Strategy Import from TradingView ($1000 [buy now!](https://www.patreon.com/bePatron?u=57560983))
 If you need help transferring a strategy from TradingView to the Debut ecosystem. Transferring a strategy takes up to 3 business days. You can also request to create a strategy based on an article or your own formula.
@@ -111,12 +87,18 @@ We are streaming Enterprise-based deals live on our [telegram channel](https://t
 **Remember!** Starting a bot and trading in general requires careful study of the associated risks and parameters.
 Incorrect settings can cause serious financial losses.
 
+The project has two starting trading strategies "For example" how to work with the system.
+
+An example of the strategy [SpikesG](/src/strategies/spikes-grid/ReadMe.md) in 200 days. Optimization was carried out in 180 days and 20 days of free work on untrained data.
+An initial deposit of *$500 was used*
+
+<p align="center"> <img src="/src/strategies/spikes-grid/img/BATUSDT.png" width="800"> </p>
+
+Strategy statistics were collected based on the [plugin statistics](https://github.com/debut-js/Plugins/tree/master/packages/stats), follow the link to learn more about the meaning of some statistics.
+
+Visualization is done using the [Report plugin](https://github.com/debut-js/Plugins/tree/master/packages/report).
+
 ## System requirements
 To work, you need [NodeJS 14.xx/npm 7.xx](https://nodejs.org/en/) ([installation instructions](https://htmlacademy.ru/blog/boost/tools/installing-nodejs))
 
 ## [Documentation](https://debutjs.io)
-# Installation and configuration
-
-```bash
-npm i @debut/community-core
-```
