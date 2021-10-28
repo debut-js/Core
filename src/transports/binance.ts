@@ -155,16 +155,8 @@ export class BinanceTransport implements BaseTransport {
         };
     }
 
-    public setleverage(instrumentId: string, leverage: number = 20) {
-        const instrument = this.instruments.get(instrumentId);
-
-        if (!instrument) {
-            throw new DebutError(ErrorEnvironment.Transport, `Unknown instument id ${instrumentId}`);
-        }
-
-        if (instrument.type === 'FUTURES') {
-            return this.api.futuresLeverage({ symbol: instrument.ticker, leverage });
-        }
+    public setleverage(ticker: string, leverage: number = 20) {
+        return this.api.futuresLeverage({ symbol: ticker, leverage });
     }
 
     public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
