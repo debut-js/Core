@@ -122,7 +122,7 @@ export abstract class Debut implements DebutCore {
         const len = orders.length;
 
         for (let i = 0; i < len; i++) {
-            const executedOrder = await this.closeOrder(this.orders[0]);
+            const executedOrder = await this.closeOrder(orders[i]);
             closed.push(executedOrder);
         }
 
