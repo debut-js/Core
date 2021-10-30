@@ -185,7 +185,12 @@ export abstract class Debut implements DebutCore {
             const order = await this.transport.placeOrder(pendingOrder, this.opts);
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
             await this.onOrderOpened(order);
-            this.replacePendingOrder(order);
+            const replaced = this.replacePendingOrder(order);
+
+            // Client order was removed, close current order now
+            if (!replaced) {
+                await this.closeOrder(order);
+            }
 
             return order;
         } catch (e) {
@@ -199,8 +204,19 @@ export abstract class Debut implements DebutCore {
      */
     public async closeOrder(closing: ExecutedOrder | PendingOrder) {
         // Already closing or try close not opened order
-        // TODO: Fix it with order STATUS enum
-        if (closing.processing || !('orderId' in closing)) {
+        if (closing.processing) {
+            return;
+        }
+
+        // Order not executed yet, remove immediatly
+        if (!('orderId' in closing)) {
+            const idx = this.orders.indexOf(closing);
+
+            // Restore order in list
+            if (idx === -1) {
+                this.orders.splice(idx, 1);
+            }
+
             return;
         }
 
@@ -361,10 +377,10 @@ export abstract class Debut implements DebutCore {
 
         if (idx !== -1) {
             this.orders[idx] = order;
-        } else {
-            // TODO: Remove when fine
-            console.warn('Unknown order for replace', this.orders, order);
+            return true;
         }
+
+        return false;
     }
 
     /**
