@@ -28,6 +28,7 @@ export abstract class Debut implements DebutCore {
     protected candles: Candle[] = [];
     private pluginDriver: PluginDriver;
     private orderBookSubscribtion: Promise<() => void> | null;
+    private orderCounter = 0;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
         const defaultOptions: Partial<DebutOptions> = {
@@ -61,6 +62,13 @@ export abstract class Debut implements DebutCore {
      */
     get currentCandle() {
         return this.candles[0];
+    }
+
+    /**
+     * Quick acces to this.orders.length, provide better performance than length
+     */
+    get ordersCount() {
+        return this.orderCounter;
     }
 
     /**
@@ -182,6 +190,8 @@ export abstract class Debut implements DebutCore {
             }
 
             this.orders.push(pendingOrder);
+            this.orderCounter++;
+
             const order = await this.transport.placeOrder(pendingOrder, this.opts);
             await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
             await this.onOrderOpened(order);
@@ -195,7 +205,7 @@ export abstract class Debut implements DebutCore {
             return order;
         } catch (e) {
             console.warn(this.createCoreError(`${new Date().toISOString()} Order not opened ${e.message}`));
-            this.removePendingOrder(pendingOrder);
+            this.removeOrder(pendingOrder);
         }
     }
 
@@ -210,14 +220,7 @@ export abstract class Debut implements DebutCore {
 
         // Order not executed yet, remove immediatly
         if (!('orderId' in closing)) {
-            const idx = this.orders.indexOf(closing);
-
-            // Restore order in list
-            if (idx === -1) {
-                this.orders.splice(idx, 1);
-            }
-
-            return;
+            return this.removeOrder(closing);
         }
 
         const { c: price, time } = this.currentCandle;
@@ -264,11 +267,7 @@ export abstract class Debut implements DebutCore {
                 return;
             }
 
-            const idx = this.orders.indexOf(closing);
-
-            if (idx !== -1) {
-                this.orders.splice(idx, 1);
-            }
+            this.removeOrder(closing);
 
             const order = await this.transport.placeOrder(pendingOrder, this.opts);
 
@@ -386,12 +385,15 @@ export abstract class Debut implements DebutCore {
     /**
      * Remove pending order by cid
      */
-    private removePendingOrder(order: PendingOrder) {
+    private removeOrder(order: PendingOrder | ExecutedOrder) {
         const idx = this.orders.findIndex((item) => item.cid === order.cid);
 
         if (idx !== -1) {
             this.orders.splice(idx, 1);
+            this.orderCounter--;
         }
+
+        return void 0;
     }
 
     /**
