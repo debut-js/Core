@@ -52,8 +52,8 @@ async function test(opts: DebutOptions, meta: DebutMeta) {
             ticks = ticks.filter(meta.ticksFilter(opts));
         }
 
-        console.log('\n---- Tinkoff [' + opts.ticker + '] ----\n');
-        console.log('Tested in ', ticks.length, ' candles...');
+        console.log(`\n---- [${opts.broker}] [${opts.ticker}] ----\n`);
+        console.log(`Tested in ${ticks.length} candles...`);
         transport.setTicks(ticks);
         await bot.start();
         await transport.run();
