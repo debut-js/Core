@@ -149,33 +149,19 @@ export abstract class Debut implements DebutCore {
             );
         }
 
-        const { amount, lotsMultiplier, equityLevel, sandbox, currency, interval, broker, margin, instrumentType } =
-            this.opts;
-        const { ticker, figi, lot: lotSize, pipSize, id } = this.instrument;
+        const { amount, lotsMultiplier, sandbox } = this.opts;
+        const { lot: lotSize, id } = this.instrument;
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, id);
         const pendingOrder: PendingOrder = {
             cid: ~~(Math.random() * 1e5),
-            broker,
             type: operation,
-            ticker,
-            figi,
-            currency,
-            interval,
             author: this.getName(),
             price,
             lots,
-            lotSize,
-            pipSize,
-            close: false,
             sandbox,
             learning: this.learning,
             time,
-            margin,
-            futures: instrumentType === 'FUTURES',
-            instrumentType,
-            lotsMultiplier,
-            equityLevel,
         };
 
         try {
@@ -224,32 +210,20 @@ export abstract class Debut implements DebutCore {
         }
 
         const { c: price, time } = this.currentCandle;
-        const { currency, interval, broker, margin } = this.opts;
-        const { ticker, figi, lot: lotSize, pipSize } = this.instrument;
         const type = orders.inverseType(closing.type);
         const lots = closing.executedLots;
         const pendingOrder: PendingOrder = {
             cid: Date.now(),
-            broker,
             type,
-            ticker,
-            figi,
-            currency,
-            interval,
             author: this.getName(),
             price,
             lots,
-            lotSize,
-            pipSize,
             close: true,
             openPrice: closing.price,
             openId: closing.orderId,
             sandbox: closing.sandbox,
             learning: closing.learning,
-            futures: closing.futures,
-            instrumentType: closing.instrumentType,
             time,
-            margin,
         };
 
         closing.processing = true;

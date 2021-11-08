@@ -23,9 +23,7 @@ export class TesterTransport implements BaseTransport {
     private handlers: TickHandler[] = [];
     public opts: TesterTransportOptions;
     public complete: Promise<void>;
-    private precision: number;
     private resolve: () => void;
-    private fee: number;
     private onPhase: (phase: TestingPhase) => Promise<void> = () => Promise.resolve();
     private tickPhases: {
         before: Candle[];
@@ -50,25 +48,9 @@ export class TesterTransport implements BaseTransport {
             throw new Error('transport is not ready, set ticks before bot.start() call');
         }
 
-        if (!this.precision) {
-            // Берем 20 тиков чтобы отбросить значения где в конце 0 не пишется и ошибочно не сократить точность
-            this.tickPhases.main.slice(-20).forEach((tick) => {
-                const len = `${String(tick.c).split('.').pop()}`.length;
-
-                if (len > this.precision) {
-                    this.precision = len;
-                }
-            });
-        }
-
-        // Создадим число вида 0.00000001 (минимальное число для текущей точности)
-        // Оно будет 1 пунктом, те минимальным шагом цены
-        const pipSize = Number(`${parseFloat('0').toFixed(this.precision - 1)}1`);
-
         return {
             figi: 'test',
             ticker: this.opts.ticker,
-            pipSize,
             lotPrecision: 10,
             lot: 1,
             currency: 'USD',
@@ -81,7 +63,6 @@ export class TesterTransport implements BaseTransport {
 
     public setTicks(ticks: Candle[]) {
         this.tickPhases.main = ticks.slice();
-        this.precision = 0;
 
         if (this.opts.ohlc) {
             this.tickPhases.main = generateOHLC(this.tickPhases.main);

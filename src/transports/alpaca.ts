@@ -87,29 +87,10 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
-        const { dailyBar, latestQuote, prevDailyBar } = await this.api.getSnapshot({ symbol: ticker });
-        // known prices for pip size detection
-        const prices = [
-            latestQuote?.bp,
-            dailyBar?.c,
-            dailyBar?.o,
-            dailyBar?.h,
-            dailyBar?.l,
-            prevDailyBar?.o,
-            prevDailyBar?.h,
-            prevDailyBar?.l,
-            prevDailyBar?.c,
-        ].filter((item) => Boolean(item) && parseInt(`${item}`) !== item);
-
-        const pipSize = prices.reduce((pipSize, price) => {
-            return Math.min(pipSize, orders.getMinIncrementValue(price));
-        }, Infinity);
-
         const instrument: Instrument = {
             figi: res.id,
             ticker: res.symbol,
             lot: 1, // lot is 1 always
-            pipSize,
             minNotional: 0, // does not provided from api
             minQuantity: 0, // does not provided from api
             lotPrecision: 1, // support only integer lots format

@@ -78,7 +78,6 @@ export class TinkoffTransport implements BaseTransport {
             lot: res.lot,
             minQuantity: res.minQuantity,
             minNotional: 0,
-            pipSize: res.minPriceIncrement,
             lotPrecision: 1, // Tinkoff support only integer lots format
             id: instrumentId,
             type: 'SPOT', // Other types does not supported yet

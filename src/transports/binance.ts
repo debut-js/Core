@@ -84,7 +84,6 @@ export class BinanceTransport implements BaseTransport {
             return this.instruments.get(instrumentId);
         }
 
-        const prices = await this.api.prices({ symbol: ticker });
         let info: ExchangeInfo;
 
         if (instrumentType === 'SPOT') {
@@ -96,7 +95,7 @@ export class BinanceTransport implements BaseTransport {
 
         const instrument = info.symbols.find((item) => item.symbol === ticker);
 
-        if (!prices[ticker] || !instrument) {
+        if (!instrument) {
             throw new DebutError(ErrorEnvironment.Transport, 'Unknown instrument');
         }
 
@@ -121,7 +120,6 @@ export class BinanceTransport implements BaseTransport {
         const data: Instrument = {
             figi: ticker,
             ticker: ticker,
-            pipSize: orders.getMinIncrementValue(prices[ticker]),
             minNotional,
             minQuantity,
             lot: 1,
