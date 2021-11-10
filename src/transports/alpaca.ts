@@ -14,7 +14,7 @@ import { Bar, AlpacaClient, AlpacaStream } from '@master-chief/alpaca';
 import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
 import { DebutOptions } from '@debut/types';
 import { DebutError, ErrorEnvironment } from '../modules/error';
-import { placeSandboxOrder, createOrderOptions } from './utils';
+import { placeSandboxOrder } from './utils';
 
 export type AlpacaTransportArgs = {
     atoken: string;
@@ -196,7 +196,6 @@ export class AlpacaTransport implements BaseTransport {
 
             const executed: ExecutedOrder = {
                 ...order,
-                ...createOrderOptions(instrument, opts),
                 commission,
                 executedLots: res.filled_qty || order.lots,
                 orderId: `${res.id}`,

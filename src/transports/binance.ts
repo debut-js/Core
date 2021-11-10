@@ -29,7 +29,7 @@ import Binance, {
     PositionSide,
     SideEffectType,
 } from 'binance-api-node';
-import { placeSandboxOrder, createOrderOptions } from './utils';
+import { placeSandboxOrder } from './utils';
 
 /**
  * Example order data
@@ -277,7 +277,6 @@ export class BinanceTransport implements BaseTransport {
             const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
                 ...order,
-                ...createOrderOptions(instrument, opts),
                 orderId: `${res.orderId}`,
                 executedLots: executedLots,
                 lots: executedLots,

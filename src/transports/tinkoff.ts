@@ -19,7 +19,7 @@ import OpenAPI, {
     OrderbookStreaming,
 } from '@tinkoff/invest-openapi-js-sdk';
 import { DebutError, ErrorEnvironment } from '../modules/error';
-import { createOrderOptions, placeSandboxOrder } from './utils';
+import { placeSandboxOrder } from './utils';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
@@ -139,12 +139,10 @@ export class TinkoffTransport implements BaseTransport {
 
             const executedOrder: ExecutedOrder = {
                 ...order,
-                figi: instrument.figi,
                 orderId: res.orderId,
                 executedLots: res.executedLots,
                 lots: res.executedLots,
                 commission: res.commission,
-                ...createOrderOptions(instrument, opts),
             };
 
             // TODO: prices hack does not working yet!
