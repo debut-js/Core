@@ -149,10 +149,10 @@ export abstract class Debut implements DebutCore {
             );
         }
 
-        const { amount, lotsMultiplier, sandbox } = this.opts;
+        const { amount, lotsMultiplier, sandbox, equityLevel } = this.opts;
         const { lot: lotSize, id } = this.instrument;
         const lotPrice = price * lotSize;
-        const lots = this.transport.prepareLots((amount / lotPrice) * lotsMultiplier, id);
+        const lots = this.transport.prepareLots(((amount * equityLevel) / lotPrice) * lotsMultiplier, id);
         const pendingOrder: PendingOrder = {
             cid: ~~(Math.random() * 1e5),
             type: operation,
