@@ -29,6 +29,7 @@ import Binance, {
     PositionSide,
     SideEffectType,
 } from 'binance-api-node';
+import { placeSandboxOrder, createOrderOptions } from './utils';
 
 /**
  * Example order data
@@ -171,18 +172,19 @@ export class BinanceTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const { type, lots: requestedLots, sandbox, ticker, learning, currency, futures, margin } = order;
+        const { type, lots, sandbox, learning } = order;
+        const instrument = await this.getInstrument(opts);
+        const { instrumentType, currency } = opts;
+        const { id, ticker } = instrument;
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order, opts);
+            return placeSandboxOrder(order, opts, instrument);
         }
-
-        const instrumentId = this.getInstrumentId(opts);
 
         try {
             const base: NewOrderMarketBase = {
-                quantity: String(requestedLots),
+                quantity: String(lots),
                 side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
                 symbol: ticker,
                 type: BinanceOrderType.MARKET,
@@ -190,8 +192,8 @@ export class BinanceTransport implements BaseTransport {
 
             let res: Order | FuturesOrder;
 
-            switch (true) {
-                case futures:
+            switch (instrumentType) {
+                case 'FUTURES':
                     let positionSide = PositionSide.BOTH;
 
                     if (this.hedgeMode) {
@@ -210,7 +212,7 @@ export class BinanceTransport implements BaseTransport {
 
                     res = await this.api.futuresOrder(futuresPayload);
                     break;
-                case margin:
+                case 'MARGIN':
                     const marginPayload: NewOrderMargin = {
                         ...base,
                         sideEffectType: order.close ? SideEffectType.AUTO_REPAY : SideEffectType.MARGIN_BUY,
@@ -242,7 +244,7 @@ export class BinanceTransport implements BaseTransport {
                     price += Number(fill.price);
                     qty += Number(fill.qty);
 
-                    if (order.ticker.startsWith(fill.commissionAsset)) {
+                    if (ticker.startsWith(fill.commissionAsset)) {
                         fees += Number(fill.commission);
                     }
                 });
@@ -254,30 +256,31 @@ export class BinanceTransport implements BaseTransport {
                 price = math.toFixed(Number(res.avgPrice), precision);
             }
 
-            let lots: number;
+            let executedLots: number;
 
             if (qty) {
                 const realQty = qty - fees;
-                lots = this.prepareLots(realQty, instrumentId);
-                const isInteger = parseInt(`${lots}`) === lots;
-                const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(lots);
+                executedLots = this.prepareLots(realQty, id);
+                const isInteger = parseInt(`${executedLots}`) === executedLots;
+                const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(executedLots);
 
                 // Issue with rounding
                 // Reduce lots when rounding is more than source amount
-                while (lots > realQty && lots > 0) {
-                    lots = this.prepareLots(lots - lotsRedunantValue, instrumentId);
+                while (executedLots > realQty && executedLots > 0) {
+                    executedLots = this.prepareLots(executedLots - lotsRedunantValue, id);
                 }
             } else if ('executedQty' in res) {
-                lots = Number(res.executedQty);
+                executedLots = Number(res.executedQty);
             }
 
-            const feeAmount = fees && isFinite(fees) ? fees : order.price * order.lots * (opts.fee / 100);
+            const feeAmount = fees && isFinite(fees) ? fees : price * order.lots * (opts.fee / 100);
             const commission = { value: feeAmount, currency };
             const executed: ExecutedOrder = {
                 ...order,
+                ...createOrderOptions(instrument, opts),
                 orderId: `${res.orderId}`,
-                executedLots: lots,
-                lots,
+                executedLots: executedLots,
+                lots: executedLots,
                 commission,
                 price,
             };
@@ -294,7 +297,8 @@ export class BinanceTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(instrumentId)) {
+                // Проверяем, что подписка все еще актуальна
+                if (this.instruments.has(instrument.id)) {
                     return this.placeOrder(order, opts);
                 }
             }
@@ -302,19 +306,6 @@ export class BinanceTransport implements BaseTransport {
             debug.logDebug('retry failure with order', order);
             throw e;
         }
-    }
-
-    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * (opts.fee / 100);
-        const commission = { value: feeAmount, currency: order.currency };
-        const executed: ExecutedOrder = {
-            ...order,
-            orderId: orders.syntheticOrderId(order),
-            executedLots: order.lots,
-            commission,
-        };
-
-        return executed;
     }
 
     public prepareLots(lots: number, instrumentId: string) {

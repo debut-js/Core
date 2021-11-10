@@ -26,36 +26,36 @@
         "genetic": "lib/cli/genetic.js"
     },
     "dependencies": {
-        "@debut/plugin-utils": "^1.0.20",
-        "@master-chief/alpaca": "^6.3.1",
+        "@debut/plugin-utils": "^1.1.2",
+        "@master-chief/alpaca": "^6.3.9",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
-        "@types/ws": "^7.4.7",
+        "@types/ws": "^8.2.0",
         "async-genetic": "^1.4.2",
-        "binance-api-node": "0.11.13",
-        "cli-progress": "^3.9.0",
-        "node-fetch": "^3.0.0"
+        "binance-api-node": "0.11.22",
+        "cli-progress": "^3.9.1",
+        "node-fetch": "^3.1.0"
     },
     "devDependencies": {
-        "@debut/types": "^1.2.2",
+        "@debut/types": "^2.0.0",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
-        "@types/jest": "^27.0.1",
-        "@types/node": "^16.7.10",
-        "@typescript-eslint/eslint-plugin": "^4.30.0",
-        "@typescript-eslint/parser": "^4.30.0",
+        "@types/jest": "^27.0.2",
+        "@types/node": "^16.11.7",
+        "@typescript-eslint/eslint-plugin": "^5.3.1",
+        "@typescript-eslint/parser": "^5.3.1",
         "benchmark": "^2.1.4",
-        "eslint": "^7.32.0",
+        "eslint": "^8.2.0",
         "eslint-config-prettier": "^8.3.0",
         "eslint-plugin-prettier": "^4.0.0",
         "git-format-staged": "^2.1.2",
         "husky": "4.3.8",
-        "jest": "^27.1.0",
-        "prettier": "^2.3.2",
-        "rollup": "^2.56.3",
+        "jest": "^27.3.1",
+        "prettier": "^2.4.1",
+        "rollup": "^2.59.0",
         "rollup-plugin-terser": "^7.0.2",
         "rollup-plugin-typescript2": "^0.30.0",
-        "ts-jest": "^27.0.5",
-        "typescript": "^4.4.2"
+        "ts-jest": "^27.0.7",
+        "typescript": "^4.4.4"
     },
     "husky": {
         "hooks": {

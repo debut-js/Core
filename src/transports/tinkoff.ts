@@ -13,13 +13,13 @@ import {
     TimeFrame,
 } from '@debut/types';
 import OpenAPI, {
-    MoneyAmount,
     Candle as TinkoffCandle,
     CandleStreaming,
     CandleResolution,
     OrderbookStreaming,
 } from '@tinkoff/invest-openapi-js-sdk';
 import { DebutError, ErrorEnvironment } from '../modules/error';
+import { createOrderOptions, placeSandboxOrder } from './utils';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
@@ -115,19 +115,20 @@ export class TinkoffTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const { figi, type, lots, sandbox, learning } = order;
-        const instrumentId = this.getInstrumentId(opts);
+        const { type, lots, sandbox, learning } = order;
+        const instrument = await this.getInstrument(opts);
 
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order, opts);
+            return placeSandboxOrder(order, opts, instrument);
         }
+
+        const { figi, id } = instrument;
 
         try {
             const operation = type === OrderType.BUY ? 'Buy' : 'Sell';
             const res = await this.api.marketOrder({ figi, lots, operation });
-
             if (res.rejectReason || res.message || badStatus.includes(res.status)) {
                 throw res;
             }
@@ -136,14 +137,23 @@ export class TinkoffTransport implements BaseTransport {
                 debug.logDebug(' retry success');
             }
 
-            order = { ...res, ...order };
+            const executedOrder: ExecutedOrder = {
+                ...order,
+                figi: instrument.figi,
+                orderId: res.orderId,
+                executedLots: res.executedLots,
+                lots: res.executedLots,
+                commission: res.commission,
+                ...createOrderOptions(instrument, opts),
+            };
+
             // TODO: prices hack does not working yet!
             // const prices = await this.updateOrderPrices(order);
 
             // order = { ...order, ...prices };
             // order.time = tickTime;
 
-            return order as ExecutedOrder;
+            return executedOrder;
         } catch (e) {
             if (order.retries <= 10) {
                 debug.logDebug(' error order place \n', e);
@@ -155,7 +165,7 @@ export class TinkoffTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(instrumentId)) {
+                if (this.instruments.has(id)) {
                     return this.placeOrder(order, opts);
                 }
             }
@@ -163,19 +173,6 @@ export class TinkoffTransport implements BaseTransport {
             debug.logDebug(' retry failure with order', order);
             throw e;
         }
-    }
-
-    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * (opts.fee / 100);
-        const commission: MoneyAmount = { value: feeAmount, currency: 'USD' };
-        const executed: ExecutedOrder = {
-            ...order,
-            orderId: orders.syntheticOrderId(order),
-            executedLots: order.lots,
-            commission,
-        };
-
-        return executed;
     }
 
     public prepareLots(lots: number) {

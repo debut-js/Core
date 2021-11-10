@@ -11,6 +11,7 @@ import {
 } from '@debut/types';
 import { generateOHLC } from './history';
 import { DepthHandler } from '@debut/types';
+import { placeSandboxOrder } from '../../transports/utils';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -128,20 +129,9 @@ export class TesterTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * (opts.fee / 100);
-        const commission = { value: feeAmount, currency: 'USD' };
-        const executed: ExecutedOrder = {
-            ...order,
-            orderId: orders.syntheticOrderId(order),
-            executedLots: order.lots,
-            commission,
-        };
+        const instrument = await this.getInstrument(opts);
 
-        return executed;
-    }
-
-    public placeSandboxOrder(order: PendingOrder, opts: DebutOptions) {
-        return this.placeOrder(order, opts);
+        return placeSandboxOrder(order, opts, instrument);
     }
 
     public async getUsdBalance() {

@@ -1,4 +1,4 @@
-import { date, debug, math, orders, promise } from '@debut/plugin-utils';
+import { date, debug, math, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
@@ -14,6 +14,7 @@ import { Bar, AlpacaClient, AlpacaStream } from '@master-chief/alpaca';
 import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
 import { DebutOptions } from '@debut/types';
 import { DebutError, ErrorEnvironment } from '../modules/error';
+import { placeSandboxOrder, createOrderOptions } from './utils';
 
 export type AlpacaTransportArgs = {
     atoken: string;
@@ -164,13 +165,16 @@ export class AlpacaTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const { type, lots, sandbox, learning, ticker, currency } = order;
-        const instrumentId = this.getInstrumentId(opts);
+        const { type, lots, sandbox, learning } = order;
+        const instrument = await this.getInstrument(opts);
+        const feeAmount = order.price * order.lots * (opts.fee / 100);
+        const commission = { value: feeAmount, currency: 'USD' };
+        const { id, ticker } = instrument;
 
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return this.placeSandboxOrder(order, opts);
+            return placeSandboxOrder(order, opts, instrument);
         }
 
         try {
@@ -192,9 +196,10 @@ export class AlpacaTransport implements BaseTransport {
 
             const executed: ExecutedOrder = {
                 ...order,
+                ...createOrderOptions(instrument, opts),
+                commission,
                 executedLots: res.filled_qty || order.lots,
                 orderId: `${res.id}`,
-                commission: { currency, value: 0 },
                 price: res.filled_avg_price || order.price,
             };
 
@@ -210,7 +215,7 @@ export class AlpacaTransport implements BaseTransport {
                 );
                 await promise.sleep(timeout);
 
-                if (this.instruments.has(instrumentId)) {
+                if (this.instruments.has(id)) {
                     return this.placeOrder(order, opts);
                 }
             }
@@ -218,19 +223,6 @@ export class AlpacaTransport implements BaseTransport {
             debug.logDebug(' retry failure with order', order);
             throw e;
         }
-    }
-
-    public async placeSandboxOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const feeAmount = order.price * order.lots * (opts.fee / 100);
-        const commission = { value: feeAmount, currency: order.currency };
-        const executed: ExecutedOrder = {
-            ...order,
-            orderId: orders.syntheticOrderId(order),
-            executedLots: order.lots,
-            commission,
-        };
-
-        return executed;
     }
 
     public prepareLots(lots: number) {
