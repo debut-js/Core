@@ -22,6 +22,8 @@ export class DebutError {
                 return 'Debut core error:';
             case ErrorEnvironment.Genetic:
                 return 'Debut genetic error:';
+            case ErrorEnvironment.Tester:
+                return 'Debut tester error:';
             default:
                 return 'Debut unknown error:';
         }
