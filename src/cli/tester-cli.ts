@@ -2,6 +2,7 @@ import { TesterTransport } from './tester/tester-transport';
 import { getHistory } from './tester/history';
 import { cli } from '@debut/plugin-utils';
 import { DebutMeta, DebutOptions, InstrumentType, WorkingEnv } from '@debut/types';
+import { DebutError, ErrorEnvironment } from '../modules/error';
 
 type Params = {
     bot: string;
@@ -13,7 +14,16 @@ type Params = {
 
 const args = cli.getArgs<Params>();
 const { bot, ticker, days = 1000, ohlc, gap = 0 } = args;
-const schema: cli.BotData | null = cli.getBotData(bot);
+let schema: cli.BotData | null;
+
+try {
+    schema = cli.getBotData(bot);
+} catch (e) {
+    throw new DebutError(
+        ErrorEnvironment.Tester,
+        `Strategy "${bot}"" is not configured correctly, please add this to schema.json`,
+    );
+}
 
 (async function () {
     if (!schema) {

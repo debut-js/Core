@@ -4,6 +4,7 @@ export enum ErrorEnvironment {
     History,
     Core,
     Transport,
+    Tester,
 }
 
 export class DebutError {
