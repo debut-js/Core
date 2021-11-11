@@ -26,17 +26,17 @@
         "genetic": "lib/cli/genetic.js"
     },
     "dependencies": {
-        "@debut/plugin-utils": "^1.1.2",
-        "@master-chief/alpaca": "^6.3.9",
+        "@debut/plugin-utils": "^1.1.3",
+        "@master-chief/alpaca": "^6.3.10",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
         "@types/ws": "^8.2.0",
         "async-genetic": "^1.4.2",
-        "binance-api-node": "0.11.22",
+        "binance-api-node": "0.11.24",
         "cli-progress": "^3.9.1",
         "node-fetch": "^3.1.0"
     },
     "devDependencies": {
-        "@debut/types": "^2.0.3",
+        "@debut/types": "^2.0.5",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
         "@types/jest": "^27.0.2",
