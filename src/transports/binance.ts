@@ -87,11 +87,11 @@ export class BinanceTransport implements BaseTransport {
 
         let info: ExchangeInfo;
 
-        if (instrumentType === 'SPOT') {
-            info = this.info = this.info || (await this.api.exchangeInfo());
-        } else if (instrumentType === 'FUTURES') {
+        if (instrumentType === 'FUTURES') {
             info = this.futuresInfo = this.futuresInfo || (await this.api.futuresExchangeInfo());
             this.hedgeMode = (await this.api.futuresPositionMode()).dualSidePosition;
+        } else {
+            info = this.info = this.info || (await this.api.exchangeInfo());
         }
 
         const instrument = info.symbols.find((item) => item.symbol === ticker);
