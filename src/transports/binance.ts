@@ -107,7 +107,8 @@ export class BinanceTransport implements BaseTransport {
             if (filter.filterType === 'LOT_SIZE') {
                 minQuantity = Number(filter.minQty);
             } else if (filter.filterType === 'MIN_NOTIONAL') {
-                minNotional = Number(filter.minNotional);
+                // @ts-ignore
+                minNotional = Number(filter.minNotional) || Number(filter.notional);
             }
 
             if (minQuantity && minNotional) {
