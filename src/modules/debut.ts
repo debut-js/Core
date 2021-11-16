@@ -136,6 +136,7 @@ export abstract class Debut implements DebutCore {
 
             for (let i = 0; i < len; i++) {
                 const closing = orderList[i];
+                closing.processing = true;
 
                 if (type && closing.type !== type) {
                     throw new DebutError(
@@ -144,17 +145,19 @@ export abstract class Debut implements DebutCore {
                     );
                 }
 
-                if ('orderId' in closing && !closing.learning && !closing.sandbox) {
+                if ('orderId' in closing && !closing.learning && !closing.sandbox && !closing.processing) {
                     lots += closing.lots;
                     type = closing.type;
                 }
             }
 
-            this.orders.length = 0;
             lots = this.transport.prepareLots(lots, this.instrument.id);
 
             const collapsedPending = this.createPending(orders.inverseType(type), lots, { close: true, openId: 'ALL' });
             closed.push(await this.transport.placeOrder(collapsedPending, this.opts));
+
+            this.orders.length = 0;
+            this.orderCounter = 0;
         } else {
             for (let i = 0; i < len; i++) {
                 const executedOrder = await this.closeOrder(orderList[i]);
