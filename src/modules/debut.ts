@@ -134,7 +134,7 @@ export abstract class Debut implements DebutCore {
             let lots: number = 0;
             let type: OrderType;
 
-            for (let i = 0; i < len - 1; i++) {
+            for (let i = 0; i < len; i++) {
                 const closing = orderList[i];
 
                 if (type && closing.type !== type) {
