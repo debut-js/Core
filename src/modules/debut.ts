@@ -130,7 +130,7 @@ export abstract class Debut implements DebutCore {
         const orderList = [...this.orders];
         const len = this.orderCounter;
 
-        if (collapse) {
+        if (collapse && len > 1) {
             let lots: number = 0;
             let type: OrderType;
 
@@ -150,11 +150,11 @@ export abstract class Debut implements DebutCore {
                 }
             }
 
+            this.orders.length = 0;
             lots = this.transport.prepareLots(lots, this.instrument.id);
 
             const collapsedPending = this.createPending(orders.inverseType(type), lots, { close: true, openId: 'ALL' });
-
-            this.transport.placeOrder(collapsedPending, this.opts);
+            closed.push(await this.transport.placeOrder(collapsedPending, this.opts));
         } else {
             for (let i = 0; i < len; i++) {
                 const executedOrder = await this.closeOrder(orderList[i]);
