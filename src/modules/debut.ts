@@ -118,20 +118,48 @@ export abstract class Debut implements DebutCore {
 
     /**
      * Close all current positions
+     * @param collapse all orders to single, beta
      */
-    public async closeAll() {
-        if (!this.orders.length) {
+    public async closeAll(collapse = false) {
+        if (!this.orderCounter) {
             return;
         }
 
         const closed: Array<ExecutedOrder> = [];
         // Because close order mutate this.orders array, make shallow immutable for loop
-        const orders = [...this.orders];
-        const len = orders.length;
+        const orderList = [...this.orders];
+        const len = this.orderCounter;
 
-        for (let i = 0; i < len; i++) {
-            const executedOrder = await this.closeOrder(orders[i]);
-            closed.push(executedOrder);
+        if (collapse) {
+            let lots: number = 0;
+            let type: OrderType;
+
+            for (let i = 0; i < len - 1; i++) {
+                const closing = orderList[i];
+
+                if (type && closing.type !== type) {
+                    throw new DebutError(
+                        ErrorEnvironment.Core,
+                        'Collapsed closing cannot close orders different type, all orders must have same type, BUY or SELL only',
+                    );
+                }
+
+                if ('orderId' in closing && !closing.learning && !closing.sandbox) {
+                    lots += closing.lots;
+                    type = closing.type;
+                }
+            }
+
+            lots = this.transport.prepareLots(lots, this.instrument.id);
+
+            const collapsedPending = this.createPending(orders.inverseType(type), lots, { close: true, openId: 'ALL' });
+
+            this.transport.placeOrder(collapsedPending, this.opts);
+        } else {
+            for (let i = 0; i < len; i++) {
+                const executedOrder = await this.closeOrder(orderList[i]);
+                closed.push(executedOrder);
+            }
         }
 
         return closed;
@@ -141,7 +169,7 @@ export abstract class Debut implements DebutCore {
      * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
-        const { c: price, time } = this.currentCandle || {};
+        const { c: price } = this.currentCandle || {};
 
         if (!price) {
             throw this.createCoreError(
@@ -153,16 +181,7 @@ export abstract class Debut implements DebutCore {
         const { lot: lotSize, id } = this.instrument;
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots(((amount * equityLevel) / lotPrice) * lotsMultiplier, id);
-        const pendingOrder: PendingOrder = {
-            cid: ~~(Math.random() * 1e5),
-            type: operation,
-            author: this.getName(),
-            price,
-            lots,
-            sandbox,
-            learning: this.learning,
-            time,
-        };
+        const pendingOrder = this.createPending(operation, lots, { learning: this.learning, sandbox });
 
         try {
             // Skipping opening because the plugin prevent further actions
@@ -209,22 +228,7 @@ export abstract class Debut implements DebutCore {
             return this.removeOrder(closing);
         }
 
-        const { c: price, time } = this.currentCandle;
-        const type = orders.inverseType(closing.type);
-        const lots = closing.executedLots;
-        const pendingOrder: PendingOrder = {
-            cid: Date.now(),
-            type,
-            author: this.getName(),
-            price,
-            lots,
-            close: true,
-            openPrice: closing.price,
-            openId: closing.orderId,
-            sandbox: closing.sandbox,
-            learning: closing.learning,
-            time,
-        };
+        const pendingOrder = this.createClosePending(closing);
 
         closing.processing = true;
 
@@ -354,6 +358,32 @@ export abstract class Debut implements DebutCore {
         }
 
         return false;
+    }
+
+    private createPending(type: OrderType, lots: number, details?: Partial<PendingOrder>): PendingOrder {
+        const { c: price, time } = this.currentCandle;
+
+        return {
+            ...details,
+            cid: ~~(Math.random() * 1e5),
+            type,
+            author: this.getName(),
+            price,
+            lots,
+            time,
+        };
+    }
+
+    private createClosePending(closing: ExecutedOrder) {
+        const pendingDetails: Partial<PendingOrder> = {
+            openPrice: closing.price,
+            openId: closing.orderId,
+            sandbox: closing.sandbox,
+            learning: closing.learning,
+            close: true,
+        };
+
+        return this.createPending(orders.inverseType(closing.type), closing.lots, pendingDetails);
     }
 
     /**
