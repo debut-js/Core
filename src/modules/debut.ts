@@ -125,47 +125,29 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        const closed: Array<ExecutedOrder> = [];
-        // Because close order mutate this.orders array, make shallow immutable for loop
-        const orderList = [...this.orders];
         const len = this.orderCounter;
+        const orderList = [...this.orders];
 
-        if (collapse && len > 1) {
-            let lots: number = 0;
-            let type: OrderType;
+        if (!collapse) {
+            const closed: Array<ExecutedOrder> = [];
+            // Because close order mutate this.orders array, make shallow immutable for loop
 
             for (let i = 0; i < len; i++) {
-                const closing = orderList[i];
-                closing.processing = true;
-
-                if (type && closing.type !== type) {
-                    throw new DebutError(
-                        ErrorEnvironment.Core,
-                        'Collapsed closing cannot close orders different type, all orders must have same type, BUY or SELL only',
-                    );
-                }
-
-                if ('orderId' in closing && !closing.learning && !closing.sandbox && !closing.processing) {
-                    lots += closing.lots;
-                    type = closing.type;
-                }
+                closed.push(await this.closeOrder(orderList[i]));
             }
 
-            lots = this.transport.prepareLots(lots, this.instrument.id);
-
-            const collapsedPending = this.createPending(orders.inverseType(type), lots, { close: true, openId: 'ALL' });
-            closed.push(await this.transport.placeOrder(collapsedPending, this.opts));
-
-            this.orders.length = 0;
-            this.orderCounter = 0;
-        } else {
-            for (let i = 0; i < len; i++) {
-                const executedOrder = await this.closeOrder(orderList[i]);
-                closed.push(executedOrder);
-            }
+            return closed;
         }
 
-        return closed;
+        await this.transport.startTransaction(this.opts, len);
+
+        for (let i = 0; i < len; i++) {
+            this.closeOrder(orderList[i]);
+        }
+
+        await this.transport.whenTransactionReady(this.opts);
+
+        return this.transport.endTransaction(this.opts);
     }
 
     /**

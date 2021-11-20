@@ -19,7 +19,8 @@ import OpenAPI, {
     OrderbookStreaming,
 } from '@tinkoff/invest-openapi-js-sdk';
 import { DebutError, ErrorEnvironment } from '../modules/error';
-import { placeSandboxOrder } from './utils';
+import { Transaction } from './utils/transaction';
+import { placeSandboxOrder } from './utils/utils';
 
 const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
@@ -60,6 +61,32 @@ export class TinkoffTransport implements BaseTransport {
         let socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
 
         this.api = new OpenAPI({ apiURL, socketURL, secretToken: token });
+    }
+
+    public async startTransaction(opts: DebutOptions, count: number) {
+        const instrument = await this.getInstrument(opts);
+
+        instrument.transaction = new Transaction(opts, count);
+    }
+
+    public async whenTransactionReady(opts: DebutOptions) {
+        const instrument = await this.getInstrument(opts);
+
+        if (instrument.transaction) {
+            return instrument.transaction.whenReady();
+        }
+    }
+
+    public async endTransaction(opts: DebutOptions): Promise<ExecutedOrder[]> {
+        const instrument = await this.getInstrument(opts);
+
+        if (instrument.transaction) {
+            return instrument.transaction.execute((order: PendingOrder) => {
+                return this.placeOrder(order, opts);
+            });
+        }
+
+        return [];
     }
 
     public async getInstrument(opts: DebutOptions) {
@@ -116,15 +143,20 @@ export class TinkoffTransport implements BaseTransport {
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning } = order;
-        const instrument = await this.getInstrument(opts);
 
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return placeSandboxOrder(order, opts, instrument);
+            return placeSandboxOrder(order, opts);
         }
 
+        const instrument = await this.getInstrument(opts);
         const { figi, id } = instrument;
+
+        // openId = 'ALL' mean end of transaction, skip that to execute for resolve transaction
+        if (instrument.transaction && order.openId !== 'ALL') {
+            return instrument.transaction.add(order);
+        }
 
         try {
             const operation = type === OrderType.BUY ? 'Buy' : 'Sell';

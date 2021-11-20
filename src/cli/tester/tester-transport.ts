@@ -7,11 +7,12 @@ import {
     Candle,
     TestingPhase,
     DebutOptions,
+    DepthHandler,
     PendingOrder,
 } from '@debut/types';
 import { generateOHLC } from './history';
-import { DepthHandler } from '@debut/types';
-import { placeSandboxOrder } from '../../transports/utils';
+import { placeSandboxOrder } from '../../transports/utils/utils';
+import { DebutError, ErrorEnvironment } from '../../modules/error';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -40,6 +41,14 @@ export class TesterTransport implements BaseTransport {
             main: [],
             after: [],
         };
+    }
+
+    public async startTransaction(opts: DebutOptions) {
+        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
+    }
+
+    public async endTransaction(opts: DebutOptions) {
+        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
     }
 
     public async getInstrument(opts: DebutOptions) {
@@ -129,9 +138,7 @@ export class TesterTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const instrument = await this.getInstrument(opts);
-
-        return placeSandboxOrder(order, opts, instrument);
+        return placeSandboxOrder(order, opts);
     }
 
     public async getUsdBalance() {

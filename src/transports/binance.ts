@@ -29,7 +29,8 @@ import Binance, {
     PositionSide,
     SideEffectType,
 } from 'binance-api-node';
-import { placeSandboxOrder } from './utils';
+import { placeSandboxOrder } from './utils/utils';
+import { Transaction } from './utils/transaction';
 
 /**
  * Example order data
@@ -74,6 +75,32 @@ export class BinanceTransport implements BaseTransport {
 
         // Authenticated client, can make signed calls
         this.api = Binance({ apiKey, apiSecret });
+    }
+
+    public async startTransaction(opts: DebutOptions, count: number) {
+        const instrument = await this.getInstrument(opts);
+
+        instrument.transaction = new Transaction(opts, count);
+    }
+
+    public async whenTransactionReady(opts: DebutOptions) {
+        const instrument = await this.getInstrument(opts);
+
+        if (instrument.transaction) {
+            return instrument.transaction.whenReady();
+        }
+    }
+
+    public async endTransaction(opts: DebutOptions): Promise<ExecutedOrder[]> {
+        const instrument = await this.getInstrument(opts);
+
+        if (instrument.transaction) {
+            return instrument.transaction.execute((order: PendingOrder) => {
+                return this.placeOrder(order, opts);
+            });
+        }
+
+        return [];
     }
 
     public async getInstrument(opts: DebutOptions) {
@@ -180,7 +207,12 @@ export class BinanceTransport implements BaseTransport {
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
-            return placeSandboxOrder(order, opts, instrument);
+            return placeSandboxOrder(order, opts);
+        }
+
+        // openId = 'ALL' mean end of transaction, skip that to execute for resolve transaction
+        if (instrument.transaction && order.openId !== 'ALL') {
+            return instrument.transaction.add(order);
         }
 
         try {
