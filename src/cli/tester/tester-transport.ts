@@ -47,7 +47,11 @@ export class TesterTransport implements BaseTransport {
         throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
     }
 
-    public async endTransaction(opts: DebutOptions) {
+    public async whenTransactionReady(opts: DebutOptions) {
+        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
+    }
+
+    public async endTransaction(opts: DebutOptions): Promise<ExecutedOrder[]> {
         throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
     }
 
