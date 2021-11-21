@@ -130,7 +130,7 @@ export abstract class Debut implements DebutCore {
         const len = this.orderCounter;
         const orderList = [...this.orders];
 
-        if (!collapse) {
+        if (!collapse || len === 1) {
             const closed: Array<ExecutedOrder> = [];
             // Because close order mutate this.orders array, make shallow immutable for loop
 
@@ -147,7 +147,11 @@ export abstract class Debut implements DebutCore {
             this.closeOrder(orderList[i]);
         }
 
-        return this.transaction.execute();
+        const orders = await this.transaction.execute();
+
+        this.transaction = null;
+
+        return orders;
     }
 
     /**

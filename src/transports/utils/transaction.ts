@@ -50,15 +50,14 @@ export class Transaction implements TransactionInterface {
             virtualOrders.push(executed);
         }
 
-        const instrument = await this.transport.getInstrument(this.opts);
-        const collapsedOrder = {
-            ...this.orders[0],
-            openId: 'ALL',
-            lots: this.transport.prepareLots(lots, instrument.id),
-        };
-
         // Change prices, if all orders is sandbox or learning, keep original prices
         if (lots > 0) {
+            const instrument = await this.transport.getInstrument(this.opts);
+            const collapsedOrder = {
+                ...this.orders[0],
+                openId: 'ALL',
+                lots: this.transport.prepareLots(lots, instrument.id),
+            };
             const marketOrder = await this.transport.placeOrder(collapsedOrder, this.opts);
 
             // Apply same price to each order, end execute as partial
