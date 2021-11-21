@@ -12,7 +12,6 @@ import {
 } from '@debut/types';
 import { generateOHLC } from './history';
 import { placeSandboxOrder } from '../../transports/utils/utils';
-import { DebutError, ErrorEnvironment } from '../../modules/error';
 
 type TesterTransportOptions = {
     ticker: string;
@@ -41,18 +40,6 @@ export class TesterTransport implements BaseTransport {
             main: [],
             after: [],
         };
-    }
-
-    public async startTransaction(opts: DebutOptions) {
-        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
-    }
-
-    public async whenTransactionReady(opts: DebutOptions) {
-        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
-    }
-
-    public async endTransaction(opts: DebutOptions): Promise<ExecutedOrder[]> {
-        throw new DebutError(ErrorEnvironment.Tester, 'Transactions are not supported in testing mode');
     }
 
     public async getInstrument(opts: DebutOptions) {

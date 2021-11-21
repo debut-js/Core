@@ -81,32 +81,6 @@ export class AlpacaTransport implements BaseTransport {
         });
     }
 
-    public async startTransaction(opts: DebutOptions, count: number) {
-        const instrument = await this.getInstrument(opts);
-
-        instrument.transaction = new Transaction(opts, count);
-    }
-
-    public async whenTransactionReady(opts: DebutOptions) {
-        const instrument = await this.getInstrument(opts);
-
-        if (instrument.transaction) {
-            return instrument.transaction.whenReady();
-        }
-    }
-
-    public async endTransaction(opts: DebutOptions): Promise<ExecutedOrder[]> {
-        const instrument = await this.getInstrument(opts);
-
-        if (instrument.transaction) {
-            return instrument.transaction.execute((order: PendingOrder) => {
-                return this.placeOrder(order, opts);
-            });
-        }
-
-        return [];
-    }
-
     public async getInstrument(opts: DebutOptions) {
         const { ticker } = opts;
         const instrumentId = this.getInstrumentId(opts);
@@ -202,11 +176,6 @@ export class AlpacaTransport implements BaseTransport {
 
         if (sandbox || learning) {
             return placeSandboxOrder(order, opts);
-        }
-
-        // openId = 'ALL' mean end of transaction, skip that to execute for resolve transaction
-        if (instrument.transaction && order.openId !== 'ALL') {
-            return instrument.transaction.add(order);
         }
 
         try {

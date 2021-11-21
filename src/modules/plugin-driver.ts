@@ -3,22 +3,42 @@ import {
     DebutCore,
     PluginCtx,
     PluginInterface,
-    SyncHooks,
     SkippingHooks,
     AsyncHooks,
     PluginHook,
-    HookToArgumentsMap,
+    SkipHookArgumentsMap,
+    AsyncHookArgumentsMap,
 } from '@debut/types';
 
 export class PluginDriver implements PluginDriverInterface {
     private pluginCtx: PluginCtx;
     private plugins: PluginInterface[] = [];
+    private hooksList = [
+        // onInit called immediatly after registration
+        PluginHook.onBeforeOpen,
+        PluginHook.onOpen,
+        PluginHook.onBeforeClose,
+        PluginHook.onClose,
+        PluginHook.onBeforeTick,
+        PluginHook.onTick,
+        PluginHook.onCandle,
+        PluginHook.onAfterCandle,
+        PluginHook.onStart,
+        PluginHook.onDispose,
+        PluginHook.onDepth,
+        PluginHook.onMajorCandle,
+    ];
+    private registeredHooks: Partial<Record<PluginHook, Array<Function>>> = {};
 
     constructor(private debut: DebutCore) {
         this.pluginCtx = Object.freeze({
             findPlugin: this.findPlugin,
             debut: this.debut,
         });
+
+        for (const hookName of this.hooksList) {
+            this.registeredHooks[hookName] = [];
+        }
     }
 
     public register(plugins: PluginInterface[]) {
@@ -33,9 +53,12 @@ export class PluginDriver implements PluginDriverInterface {
 
             this.plugins.push(plugin);
 
-            // Run init hook only on fresh added plugins
-            if (PluginHook.onInit in plugin) {
-                plugin[PluginHook.onInit].call(this.pluginCtx);
+            if ('onInit' in plugin) {
+                plugin.onInit.call(this.pluginCtx);
+            }
+
+            for (const hookName of this.hooksList) {
+                this.registerHook(hookName, plugin[hookName]);
             }
         }
     }
@@ -52,15 +75,9 @@ export class PluginDriver implements PluginDriverInterface {
         return Object.freeze(api);
     }
 
-    public syncReduce<T extends SyncHooks>(hookName: T, ...args: Parameters<HookToArgumentsMap[T]>) {
-        for (const plugin of this.plugins) {
-            this.runHook(hookName, plugin, ...args);
-        }
-    }
-
-    public async asyncSkipReduce<T extends SkippingHooks>(hookName: T, ...args: Parameters<HookToArgumentsMap[T]>) {
-        for (const plugin of this.plugins) {
-            const skip = await this.runHook(hookName, plugin, ...args);
+    public skipReduce(hookName: SkippingHooks, ...args: Parameters<SkipHookArgumentsMap[SkippingHooks]>): boolean {
+        for (const hook of this.registeredHooks[hookName]) {
+            const skip: boolean | void = hook(...args);
 
             if (skip) {
                 return skip;
@@ -70,19 +87,15 @@ export class PluginDriver implements PluginDriverInterface {
         return false;
     }
 
-    public async asyncReduce<T extends AsyncHooks>(hookName: AsyncHooks, ...args: Parameters<HookToArgumentsMap[T]>) {
-        for (const plugin of this.plugins) {
-            await this.runHook(hookName, plugin, ...args);
+    public async asyncReduce(hookName: AsyncHooks, ...args: Parameters<AsyncHookArgumentsMap[AsyncHooks]>) {
+        for (const hook of this.registeredHooks[hookName]) {
+            await hook(...args);
         }
     }
 
-    public runHook<T extends PluginHook>(
-        hookName: PluginHook,
-        plugin: PluginInterface,
-        ...args: Parameters<HookToArgumentsMap[T]>
-    ) {
-        if (hookName in plugin) {
-            return plugin[hookName].call(this.pluginCtx, ...args);
+    private registerHook(hookName: PluginHook, hook: Function) {
+        if (hook) {
+            this.registeredHooks[hookName].push(hook.bind(this.pluginCtx));
         }
     }
 

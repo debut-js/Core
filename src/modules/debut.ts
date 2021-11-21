@@ -15,6 +15,7 @@ import {
     PluginInterface,
 } from '@debut/types';
 import { DebutError, ErrorEnvironment } from './error';
+import { Transaction } from '../transports/utils/transaction';
 
 export abstract class Debut implements DebutCore {
     public id: string;
@@ -29,6 +30,7 @@ export abstract class Debut implements DebutCore {
     private pluginDriver: PluginDriver;
     private orderBookSubscribtion: Promise<() => void> | null;
     private orderCounter = 0;
+    private transaction: Transaction;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
         const defaultOptions: Partial<DebutOptions> = {
@@ -95,7 +97,7 @@ export abstract class Debut implements DebutCore {
      * Start listen ticks for current instrument
      */
     public async start() {
-        await this.pluginDriver.asyncReduce<PluginHook.onStart>(PluginHook.onStart);
+        await this.pluginDriver.asyncReduce(PluginHook.onStart);
         this.instrument = await this.transport.getInstrument(this.opts);
         const unsubscribe = await this.transport.subscribeToTick(this.opts, this.handler);
 
@@ -103,7 +105,7 @@ export abstract class Debut implements DebutCore {
             await this.closeAll();
             unsubscribe();
 
-            return this.pluginDriver.asyncReduce<PluginHook.onDispose>(PluginHook.onDispose);
+            return this.pluginDriver.asyncReduce(PluginHook.onDispose);
         };
 
         return this.dispose;
@@ -139,15 +141,13 @@ export abstract class Debut implements DebutCore {
             return closed;
         }
 
-        await this.transport.startTransaction(this.opts, len);
+        this.transaction = new Transaction(this.opts, this.transport);
 
         for (let i = 0; i < len; i++) {
             this.closeOrder(orderList[i]);
         }
 
-        await this.transport.whenTransactionReady(this.opts);
-
-        return this.transport.endTransaction(this.opts);
+        return this.transaction.execute();
     }
 
     /**
@@ -167,23 +167,20 @@ export abstract class Debut implements DebutCore {
         const lotPrice = price * lotSize;
         const lots = this.transport.prepareLots(((amount * equityLevel) / lotPrice) * lotsMultiplier, id);
         const pendingOrder = this.createPending(operation, lots, { learning: this.learning, sandbox });
+        const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeOpen, pendingOrder);
+
+        if (skip) {
+            return;
+        }
 
         try {
             // Skipping opening because the plugin prevent further actions
-            const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeOpen>(
-                PluginHook.onBeforeOpen,
-                pendingOrder,
-            );
-
-            if (skip) {
-                return;
-            }
 
             this.orders.push(pendingOrder);
             this.orderCounter++;
 
             const order = await this.transport.placeOrder(pendingOrder, this.opts);
-            await this.pluginDriver.asyncReduce<PluginHook.onOpen>(PluginHook.onOpen, order);
+            await this.pluginDriver.asyncReduce(PluginHook.onOpen, order);
             await this.onOrderOpened(order);
             const replaced = this.replacePendingOrder(order);
 
@@ -203,38 +200,31 @@ export abstract class Debut implements DebutCore {
      * Close selected order
      */
     public async closeOrder(closing: ExecutedOrder | PendingOrder) {
-        // Already closing or try close not opened order
-        if (closing.processing) {
-            return;
-        }
-
         // Order not executed yet, remove immediatly
         if (!('orderId' in closing)) {
             return this.removeOrder(closing);
         }
 
         const pendingOrder = this.createClosePending(closing);
+        const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeClose, pendingOrder, closing);
 
-        closing.processing = true;
+        // Skip opening because action prevented from plugins
+        if (skip) {
+            return;
+        }
 
         try {
-            // Skip opening because action prevented from plugins
-            const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeClose>(
-                PluginHook.onBeforeClose,
-                pendingOrder,
-                closing,
-            );
-
-            if (skip) {
-                closing.processing = false;
-                return;
-            }
-
             this.removeOrder(closing);
 
-            const order = await this.transport.placeOrder(pendingOrder, this.opts);
+            let order: ExecutedOrder;
 
-            await this.pluginDriver.asyncReduce<PluginHook.onClose>(PluginHook.onClose, order, closing);
+            if (this.transaction) {
+                order = await this.transaction.add(pendingOrder);
+            } else {
+                order = await this.transport.placeOrder(pendingOrder, this.opts);
+            }
+
+            await this.pluginDriver.asyncReduce(PluginHook.onClose, order, closing);
             await this.onOrderClosed(order, closing);
 
             return order;
@@ -247,8 +237,6 @@ export abstract class Debut implements DebutCore {
             if (idx === -1) {
                 this.orders.unshift(closing);
             }
-        } finally {
-            closing.processing = false;
         }
     }
 
@@ -260,6 +248,7 @@ export abstract class Debut implements DebutCore {
     public async learn(days = 7) {
         this.instrument = await this.transport.getInstrument(this.opts);
         this.learning = true;
+
         const ticks = await getHistory({
             broker: this.opts.broker,
             ticker: this.opts.ticker,
@@ -280,7 +269,7 @@ export abstract class Debut implements DebutCore {
 
     private handler = async (tick: Candle) => {
         const change = this.currentCandle && this.currentCandle.time !== tick.time;
-        const skip = await this.pluginDriver.asyncSkipReduce<PluginHook.onBeforeTick>(PluginHook.onBeforeTick, tick);
+        const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeTick, tick);
 
         if (skip) {
             return;
@@ -295,14 +284,14 @@ export abstract class Debut implements DebutCore {
         } else {
             // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
             const prevTick = this.currentCandle;
-            await this.pluginDriver.asyncReduce<PluginHook.onCandle>(PluginHook.onCandle, prevTick);
+            await this.pluginDriver.asyncReduce(PluginHook.onCandle, prevTick);
             await this.onCandle(prevTick);
-            await this.pluginDriver.asyncReduce<PluginHook.onAfterCandle>(PluginHook.onAfterCandle, prevTick);
+            await this.pluginDriver.asyncReduce(PluginHook.onAfterCandle, prevTick);
             this.updateCandles(tick);
         }
 
         // Hooks onTick calling later, after candles has been updated
-        await this.pluginDriver.asyncReduce<PluginHook.onTick>(PluginHook.onTick, tick);
+        await this.pluginDriver.asyncReduce(PluginHook.onTick, tick);
         await this.onTick(tick);
     };
 
@@ -310,7 +299,7 @@ export abstract class Debut implements DebutCore {
      * Handler of orderbook socket events
      */
     private orderbookHandler = async (depth: Depth) => {
-        await this.pluginDriver.asyncReduce<PluginHook.onDepth>(PluginHook.onDepth, depth);
+        await this.pluginDriver.asyncReduce(PluginHook.onDepth, depth);
         await this.onDepth(depth);
     };
 

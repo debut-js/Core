@@ -1,4 +1,11 @@
-import { TransactionInterface, PendingOrder, ExecutedOrder, OrderType, DebutOptions } from '@debut/types';
+import {
+    TransactionInterface,
+    PendingOrder,
+    ExecutedOrder,
+    OrderType,
+    DebutOptions,
+    BaseTransport,
+} from '@debut/types';
 import { placeSandboxOrder } from './utils';
 
 export class Transaction implements TransactionInterface {
@@ -6,56 +13,22 @@ export class Transaction implements TransactionInterface {
     private reject: Function;
     private resolve: Function;
     private promise: Promise<ExecutedOrder[]>;
-    private ready: Promise<void>;
-    private readyResolve: Function;
-    private readyTimeout: NodeJS.Timeout;
 
-    constructor(private opts: DebutOptions, private count: number) {
+    constructor(private opts: DebutOptions, private transport: BaseTransport) {
         this.promise = new Promise((resolve, reject) => {
             this.reject = reject;
             this.resolve = resolve;
         });
-
-        this.ready = new Promise((resolve, reject) => {
-            this.readyResolve = resolve;
-            this.readyTimeout = setTimeout(() => {
-                reject('Transaction timeout');
-            }, 5000);
-        });
-    }
-
-    public whenReady() {
-        return this.ready;
     }
 
     public async add(order: PendingOrder) {
         const idx = this.orders.push(order) - 1;
-        const prevOrder = this.orders[idx - 1];
-
-        order.transactionSeq = idx === 0 ? 'first' : 'last';
-
-        if (prevOrder && prevOrder.transactionSeq !== 'first') {
-            prevOrder.transactionSeq = 'middle';
-        }
-
-        this.count--;
-
-        if (this.count < 0) {
-            this.reject('Transaction orders more than declared');
-        }
-
-        // All orders has been registered to transaction
-        if (this.count === 0) {
-            clearTimeout(this.readyTimeout);
-            this.readyResolve();
-        }
-
         const orders = await this.promise;
 
         return orders[idx];
     }
 
-    public async execute(executeMethod: (order: PendingOrder) => Promise<ExecutedOrder>): Promise<ExecutedOrder[]> {
+    public async execute(): Promise<ExecutedOrder[]> {
         let lots: number = 0;
         let type: OrderType;
         const length = this.orders.length;
@@ -68,23 +41,29 @@ export class Transaction implements TransactionInterface {
                 this.reject('Incorrect transaction orders, must be closed order and same type');
             }
 
-            lots += closing.lots;
-            type = closing.type;
+            if (!closing.learning && !closing.sandbox) {
+                lots += closing.lots;
+                type = closing.type;
+            }
 
             const executed = placeSandboxOrder(closing, this.opts);
             virtualOrders.push(executed);
         }
 
+        const instrument = await this.transport.getInstrument(this.opts);
         const collapsedOrder = {
             ...this.orders[0],
             openId: 'ALL',
-            lots,
+            lots: this.transport.prepareLots(lots, instrument.id),
         };
 
-        const marketOrder = await executeMethod(collapsedOrder);
+        // Change prices, if all orders is sandbox or learning, keep original prices
+        if (lots > 0) {
+            const marketOrder = await this.transport.placeOrder(collapsedOrder, this.opts);
 
-        // Apply same price to each order, end execute as partial
-        virtualOrders.forEach((order) => (order.price = marketOrder.price));
+            // Apply same price to each order, end execute as partial
+            virtualOrders.forEach((order) => (order.price = marketOrder.price));
+        }
 
         this.resolve(virtualOrders);
 
