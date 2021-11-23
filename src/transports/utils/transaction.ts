@@ -41,10 +41,8 @@ export class Transaction implements TransactionInterface {
                 this.reject('Incorrect transaction orders, must be closed order and same type');
             }
 
-            if (!closing.learning && !closing.sandbox) {
-                lots += closing.lots;
-                type = closing.type;
-            }
+            lots += closing.lots;
+            type = closing.type;
 
             const executed = placeSandboxOrder(closing, this.opts);
             virtualOrders.push(executed);
