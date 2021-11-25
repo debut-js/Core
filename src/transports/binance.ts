@@ -305,7 +305,8 @@ export class BinanceTransport implements BaseTransport {
             }
 
             debug.logDebug('retry failure with order', order);
-            throw e;
+
+            throw new DebutError(ErrorEnvironment.Transport, e.message);
         }
     }
 
@@ -385,5 +386,5 @@ export function convertTimeFrame(interval: TimeFrame) {
         case 'day':
             return CandleChartInterval.ONE_DAY;
     }
-    throw new Error('Unsupported interval');
+    throw new DebutError(ErrorEnvironment.Transport, 'Unsupported interval');
 }

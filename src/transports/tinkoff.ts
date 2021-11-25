@@ -46,7 +46,7 @@ export function convertTimeFrame(interval: TimeFrame): CandleResolution {
             return 'day';
     }
 
-    throw new Error('Unsupported interval');
+    throw new DebutError(ErrorEnvironment.Transport, 'Unsupported interval');
 }
 export class TinkoffTransport implements BaseTransport {
     protected api: OpenAPI;
@@ -170,7 +170,7 @@ export class TinkoffTransport implements BaseTransport {
             }
 
             debug.logDebug(' retry failure with order', order);
-            throw e;
+            throw new DebutError(ErrorEnvironment.Transport, e.payload?.message || e.message);
         }
     }
 

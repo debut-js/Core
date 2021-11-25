@@ -32,7 +32,7 @@ export function convertTimeFrame(timeframe: TimeFrame) {
             return '1Day';
     }
 
-    throw `Alpaca integration does not support ${timeframe} timeframe`;
+    throw new DebutError(ErrorEnvironment.Transport, `Alpaca integration does not support ${timeframe} timeframe`);
 }
 
 export function isNotSupportedTimeframe(timeframe: TimeFrame) {
@@ -188,7 +188,7 @@ export class AlpacaTransport implements BaseTransport {
             });
 
             if (!goodStatus.includes(res.status)) {
-                throw res;
+                throw new DebutError(ErrorEnvironment.Transport, res.status);
             }
 
             if (order.retries > 0) {
@@ -221,7 +221,7 @@ export class AlpacaTransport implements BaseTransport {
             }
 
             debug.logDebug(' retry failure with order', order);
-            throw e;
+            throw new DebutError(ErrorEnvironment.Transport, e.message);
         }
     }
 
