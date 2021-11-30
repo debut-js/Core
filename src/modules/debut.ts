@@ -222,7 +222,7 @@ export abstract class Debut implements DebutCore {
 
             let order: ExecutedOrder;
 
-            if (this.transaction) {
+            if (this.transaction && this.transaction.canAppendOrder(pendingOrder)) {
                 order = await this.transaction.add(pendingOrder);
             } else {
                 order = await this.transport.placeOrder(pendingOrder, this.opts);

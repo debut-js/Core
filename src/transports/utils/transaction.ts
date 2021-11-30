@@ -21,6 +21,10 @@ export class Transaction implements TransactionInterface {
         });
     }
 
+    public canAppendOrder(order: PendingOrder) {
+        return !this.orders.length || this.orders[0].type === order.type;
+    }
+
     public async add(order: PendingOrder) {
         const idx = this.orders.push(order) - 1;
         const orders = await this.promise;
