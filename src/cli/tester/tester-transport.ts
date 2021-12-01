@@ -139,10 +139,10 @@ export class TesterTransport implements BaseTransport {
     public prepareLots(lots: number) {
         switch (this.opts.broker) {
             case 'binance':
-                return math.toFixed(lots, 6);
+                return math.toFixed(lots, 4);
             case 'tinkoff':
             default:
-                return Math.floor(lots) || 1;
+                return Math.round(lots) || 1;
         }
     }
 
