@@ -263,14 +263,6 @@ export class BinanceTransport implements BaseTransport {
             if (qty) {
                 const realQty = qty - fees;
                 executedLots = this.prepareLots(realQty, id);
-                const isInteger = parseInt(`${executedLots}`) === executedLots;
-                const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(executedLots);
-
-                // Issue with rounding
-                // Reduce lots when rounding is more than source amount
-                while (executedLots > realQty && executedLots > 0) {
-                    executedLots = this.prepareLots(executedLots - lotsRedunantValue, id);
-                }
             } else if ('executedQty' in res) {
                 executedLots = Number(res.executedQty);
             }
@@ -317,12 +309,21 @@ export class BinanceTransport implements BaseTransport {
             throw new DebutError(ErrorEnvironment.Transport, `Unknown instument id ${instrumentId}`);
         }
 
-        // Zero precision means lots is integer number
-        if (instrument.lotPrecision === 0) {
-            return Math.round(lots) || instrument.minQuantity || 1;
+        const isInteger = instrument.lotPrecision === 0;
+        let resultLots = isInteger ? Math.round(lots) : math.toFixed(lots, instrument.lotPrecision);
+        const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(instrument.minQuantity);
+
+        if (Math.abs(resultLots - lots) > lotsRedunantValue) {
+            const rev = resultLots < lots ? 1 : -1;
+
+            // Issue with rounding
+            // Reduce lots when rounding is more than source amount and incrase when it less than non rounded lots
+            while (Math.abs(resultLots - lots) >= lotsRedunantValue) {
+                resultLots = math.toFixed(resultLots + lotsRedunantValue * rev, instrument.lotPrecision);
+            }
         }
 
-        return math.toFixed(lots, instrument.lotPrecision);
+        return resultLots;
     }
 
     private handlerAdapter(handler: TickHandler) {
