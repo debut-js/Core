@@ -319,7 +319,7 @@ export class BinanceTransport implements BaseTransport {
 
         // Zero precision means lots is integer number
         if (instrument.lotPrecision === 0) {
-            return Math.floor(lots);
+            return Math.round(lots) || instrument.minQuantity || 1;
         }
 
         return math.toFixed(lots, instrument.lotPrecision);

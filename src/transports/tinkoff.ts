@@ -175,7 +175,7 @@ export class TinkoffTransport implements BaseTransport {
     }
 
     public prepareLots(lots: number) {
-        return Math.floor(lots) || 1;
+        return Math.round(lots) || 1;
     }
 
     private getInstrumentId(opts: DebutOptions) {
