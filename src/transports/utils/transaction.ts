@@ -27,9 +27,10 @@ export class Transaction implements TransactionInterface {
     }
 
     public async add(order: PendingOrder) {
+        this.lastOrder = order;
+
         const idx = this.orders.push(order) - 1;
         const orders = await this.promise;
-        this.lastOrder = order;
 
         return orders[idx];
     }
