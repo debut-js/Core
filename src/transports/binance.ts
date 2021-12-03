@@ -184,16 +184,17 @@ export class BinanceTransport implements BaseTransport {
             return placeSandboxOrder(order, opts);
         }
 
+        const base: NewOrderMarketBase = {
+            quantity: String(lots),
+            side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
+            symbol: ticker,
+            type: BinanceOrderType.MARKET,
+        };
+
+        let res: Order | FuturesOrder;
+        // Only network condition should be try catch wrapped and retried, for prevent network retries when error throws from JS error
+
         try {
-            const base: NewOrderMarketBase = {
-                quantity: String(lots),
-                side: type === OrderType.BUY ? OrderSide.BUY : OrderSide.SELL,
-                symbol: ticker,
-                type: BinanceOrderType.MARKET,
-            };
-
-            let res: Order | FuturesOrder;
-
             switch (instrumentType) {
                 case 'FUTURES':
                     let positionSide = PositionSide.BOTH;
@@ -230,55 +231,6 @@ export class BinanceTransport implements BaseTransport {
             if (badStatus.includes(res.status)) {
                 throw res;
             }
-
-            if (order.retries > 0) {
-                debug.logDebug('retry success');
-            }
-
-            const precision = math.getPrecision(order.price);
-            // avg trade price
-            let fees = 0;
-            let price = 0;
-            let qty = 0;
-
-            if ('fills' in res) {
-                res.fills.forEach((fill) => {
-                    price += Number(fill.price);
-                    qty += Number(fill.qty);
-
-                    if (ticker.startsWith(fill.commissionAsset)) {
-                        fees += Number(fill.commission);
-                    }
-                });
-
-                price = math.toFixed(price / res.fills.length, precision);
-            }
-
-            if ('avgPrice' in res) {
-                price = math.toFixed(Number(res.avgPrice), precision);
-            }
-
-            let executedLots: number;
-
-            if (qty) {
-                const realQty = qty - fees;
-                executedLots = this.prepareLots(realQty, id);
-            } else if ('executedQty' in res) {
-                executedLots = Number(res.executedQty);
-            }
-
-            const feeAmount = fees && isFinite(fees) ? fees : price * order.lots * (opts.fee / 100);
-            const commission = { value: feeAmount, currency };
-            const executed: ExecutedOrder = {
-                ...order,
-                orderId: `${res.orderId}`,
-                executedLots: executedLots,
-                lots: executedLots,
-                commission,
-                price,
-            };
-
-            return executed;
         } catch (e) {
             if (order.retries <= 10) {
                 debug.logDebug('error order place', e);
@@ -300,6 +252,55 @@ export class BinanceTransport implements BaseTransport {
 
             throw new DebutError(ErrorEnvironment.Transport, e.message);
         }
+
+        if (order.retries > 0) {
+            debug.logDebug('retry success');
+        }
+
+        const precision = math.getPrecision(order.price);
+        // avg trade price
+        let fees = 0;
+        let price = 0;
+        let qty = 0;
+
+        if ('fills' in res) {
+            res.fills.forEach((fill) => {
+                price += Number(fill.price);
+                qty += Number(fill.qty);
+
+                if (ticker.startsWith(fill.commissionAsset)) {
+                    fees += Number(fill.commission);
+                }
+            });
+
+            price = math.toFixed(price / res.fills.length, precision);
+        }
+
+        if ('avgPrice' in res) {
+            price = math.toFixed(Number(res.avgPrice), precision);
+        }
+
+        let executedLots: number;
+
+        if (qty) {
+            const realQty = qty - fees;
+            executedLots = this.prepareLots(realQty, id);
+        } else if ('executedQty' in res) {
+            executedLots = Number(res.executedQty);
+        }
+
+        const feeAmount = fees && isFinite(fees) ? fees : price * order.lots * (opts.fee / 100);
+        const commission = { value: feeAmount, currency };
+        const executed: ExecutedOrder = {
+            ...order,
+            orderId: `${res.orderId}`,
+            executedLots: executedLots,
+            lots: executedLots,
+            commission,
+            price,
+        };
+
+        return executed;
     }
 
     public prepareLots(lots: number, instrumentId: string) {
