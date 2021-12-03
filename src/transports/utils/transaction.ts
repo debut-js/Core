@@ -13,6 +13,7 @@ export class Transaction implements TransactionInterface {
     private reject: Function;
     private resolve: Function;
     private promise: Promise<ExecutedOrder[]>;
+    private lastOrder: PendingOrder;
 
     constructor(private opts: DebutOptions, private transport: BaseTransport) {
         this.promise = new Promise((resolve, reject) => {
@@ -28,6 +29,7 @@ export class Transaction implements TransactionInterface {
     public async add(order: PendingOrder) {
         const idx = this.orders.push(order) - 1;
         const orders = await this.promise;
+        this.lastOrder = order;
 
         return orders[idx];
     }
@@ -56,7 +58,8 @@ export class Transaction implements TransactionInterface {
         if (lots > 0) {
             const instrument = await this.transport.getInstrument(this.opts);
             const collapsedOrder = {
-                ...this.orders[0],
+                // Last order may be not sandboxed or not learning, copy from most actual order data
+                ...this.lastOrder,
                 openId: 'ALL',
                 lots: this.transport.prepareLots(lots, instrument.id),
             };
