@@ -5,7 +5,6 @@ import {
     Instrument,
     ExecutedOrder,
     Candle,
-    TestingPhase,
     DebutOptions,
     DepthHandler,
     PendingOrder,
@@ -25,7 +24,6 @@ export class TesterTransport implements BaseTransport {
     public opts: TesterTransportOptions;
     public complete: Promise<void>;
     private resolve: () => void;
-    private onPhase: (phase: TestingPhase) => Promise<void> = () => Promise.resolve();
     private tickPhases: Array<Candle[]> = [];
 
     constructor(opts: TesterTransportOptions) {
