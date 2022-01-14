@@ -26,26 +26,17 @@ export class TesterTransport implements BaseTransport {
     public complete: Promise<void>;
     private resolve: () => void;
     private onPhase: (phase: TestingPhase) => Promise<void> = () => Promise.resolve();
-    private tickPhases: {
-        before: Candle[];
-        main: Candle[];
-        after: Candle[];
-    };
+    private tickPhases: Array<Candle[]> = [];
 
     constructor(opts: TesterTransportOptions) {
         this.opts = opts;
         this.reset();
-        this.tickPhases = {
-            before: [],
-            main: [],
-            after: [],
-        };
     }
 
     public async getInstrument(opts: DebutOptions) {
         const instrumentId = this.getInstrumentId(opts);
 
-        if (!this.tickPhases.main.length) {
+        if (!this.tickPhases.length) {
             throw new Error('transport is not ready, set ticks before bot.start() call');
         }
 
@@ -63,30 +54,33 @@ export class TesterTransport implements BaseTransport {
     }
 
     public setTicks(ticks: Candle[]) {
-        this.tickPhases.main = ticks.slice();
+        ticks = ticks.slice();
 
         if (this.opts.ohlc) {
-            this.tickPhases.main = generateOHLC(this.tickPhases.main);
-
-            console.log('OHLC Ticks is enabled, total ticks:', this.tickPhases.main.length);
+            ticks = generateOHLC(ticks);
+            console.log('OHLC Ticks is enabled, total ticks:', ticks.length);
         }
+
+        this.tickPhases.push(ticks);
     }
 
-    public async run(waitFor?: boolean): Promise<void> {
+    public async run(waitFor?: boolean, onPhase?: (phase: number, isLast: boolean) => Promise<void>): Promise<void> {
         if (waitFor) {
             const prev = this.handlers.length;
             await promise.sleep(1000);
+
             if (prev !== this.handlers.length) {
-                return this.run(waitFor);
+                return this.run(waitFor, onPhase);
             }
         }
 
-        await this.tickLoop(this.tickPhases.before);
-        await this.onPhase(TestingPhase.before);
-        await this.tickLoop(this.tickPhases.main);
-        await this.onPhase(TestingPhase.main);
-        await this.tickLoop(this.tickPhases.after);
-        await this.onPhase(TestingPhase.after);
+        for (let i = 0; i < this.tickPhases.length; i++) {
+            await this.tickLoop(this.tickPhases[i]);
+
+            if (onPhase) {
+                await onPhase(i, i === this.tickPhases.length - 1);
+            }
+        }
     }
 
     public reset() {
@@ -96,20 +90,6 @@ export class TesterTransport implements BaseTransport {
         this.complete = new Promise((resolve) => {
             this.resolve = resolve;
         });
-    }
-
-    public createCrossValidation(gap = 20, onPhase: (phase: TestingPhase) => Promise<void>) {
-        const beforeEndTime = this.tickPhases.main[0].time + 86400000 * gap;
-        const beforeIdx = this.tickPhases.main.findIndex((tick) => tick.time > beforeEndTime) - 1;
-
-        this.tickPhases.before = this.tickPhases.main.splice(0, beforeIdx);
-
-        const afterStartTime = this.tickPhases.main[this.tickPhases.main.length - 1].time - 86400000 * gap;
-        const afterIdx = this.tickPhases.main.findIndex((tick) => tick.time > afterStartTime) - 1;
-        const diff = this.tickPhases.main.length - afterIdx;
-        this.tickPhases.after = this.tickPhases.main.splice(afterIdx, diff);
-
-        this.onPhase = onPhase;
     }
 
     public subscribeToTick(opts: DebutOptions, handler: TickHandler) {

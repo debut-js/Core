@@ -5,19 +5,13 @@ import {
     GenticWrapperOptions,
     WorkingEnv,
     SchemaDescriptor,
-    TestingPhase,
     DebutCore,
-    InstrumentType,
 } from '@debut/types';
 import { Genetic, GeneticOptions, Phenotype, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
+import { Candle } from '@debut/types';
 
-interface ScoreData {
-    before: number;
-    after: number;
-    main: number;
-}
 export class GeneticWrapper {
     private genetic: Genetic<DebutCore>;
     private transport: TesterTransport;
@@ -26,7 +20,7 @@ export class GeneticWrapper {
     private schemaKeys: string[];
     private configLookup: Map<string, unknown> = new Map();
     private deduplicateLookup = new Set<string>();
-    private scoreLookup: Map<string, ScoreData> = new Map();
+    private scoreLookup: Map<string, number> = new Map();
     private lastIteration = false;
     private baseOpts: DebutOptions;
 
@@ -45,7 +39,7 @@ export class GeneticWrapper {
             deduplicate: this.deduplicate,
         };
 
-        if (options.cross) {
+        if (options.fwdGaps) {
             this.internalOptions.optimize = this.optimize;
         }
 
@@ -84,7 +78,16 @@ export class GeneticWrapper {
                 console.log(`\n----- Genetic Start with ${ticks.length} candles ----- \n`);
             }
 
-            this.transport.setTicks(ticks);
+            if (this.options.fwdGaps) {
+                const gaps = crateForwardGaps(ticks);
+
+                for (let i = 0; i < gaps.length; i++) {
+                    this.transport.setTicks(gaps[i]);
+                }
+            } else {
+                this.transport.setTicks(ticks);
+            }
+
             await this.genetic.seed();
 
             for (let i = 0; i < this.options.generations; i++) {
@@ -95,12 +98,8 @@ export class GeneticWrapper {
                     console.log('Generation: ', i);
                 }
 
-                if (this.options.cross) {
-                    this.transport.createCrossValidation(this.options.cross, this.onPhase);
-                }
-
                 // Запускаем транспорт в режиме ожидания пока не подпишется вся популяция
-                await this.transport.run(true);
+                await this.transport.run(true, this.onPhase);
                 await this.genetic.estimate();
 
                 this.genetic.population.forEach((pair) => {
@@ -148,21 +147,19 @@ export class GeneticWrapper {
 
     private fitness = async (bot: DebutCore) => {
         const hash = bot.id;
-        const storedScore = (this.scoreLookup.get(hash) || {}) as ScoreData;
+        let storedScore = this.scoreLookup.get(hash);
 
-        if (storedScore.main === undefined) {
-            storedScore.before = 0;
-            storedScore.after = 0;
-
-            const score = this.options.score(bot);
+        if (!storedScore) {
             const stats = this.options.stats(bot);
+            const score = this.options.score(bot);
 
-            storedScore.main = score;
+            storedScore = score;
+
             this.scoreLookup.set(hash, storedScore);
             this.configLookup.set(hash, stats);
         }
 
-        return storedScore.main;
+        return storedScore;
     };
 
     private mutate = async (bot: DebutCore) => {
@@ -228,23 +225,10 @@ export class GeneticWrapper {
         return bot;
     }
 
-    private onPhase = async (phase: TestingPhase) => {
+    private onPhase = async (phase: number, isLast: boolean) => {
         for (const pair of this.genetic.population) {
-            const hash = pair.entity.id;
-            const storedScore = (this.scoreLookup.get(hash) || {}) as ScoreData;
-
-            if (storedScore.after !== undefined) {
-                continue;
-            }
-
-            if (phase === TestingPhase.main) {
-                await pair.entity.closeAll();
-                const stats = this.options.stats(pair.entity);
-                this.configLookup.set(hash, stats);
-            }
-
-            storedScore[phase] = this.options.score(pair.entity, phase);
-            this.scoreLookup.set(hash, storedScore);
+            // Close All Orders between phases
+            await pair.entity.closeAll();
         }
     };
 
@@ -252,10 +236,7 @@ export class GeneticWrapper {
         const ascore = this.scoreLookup.get(a.entity.id);
         const bscore = this.scoreLookup.get(b.entity.id);
 
-        const atotal = ascore.main + ascore.before || 0 * 1.5 + ascore.after || 0 * 2;
-        const btotal = bscore.main + bscore.before || 0 * 1.5 + bscore.after || 0 * 2;
-
-        return atotal >= btotal;
+        return ascore >= bscore;
     };
 }
 
@@ -271,4 +252,21 @@ function getRandomByRange(range: SchemaDescriptor) {
     }
 
     return randomValue;
+}
+/**
+ * @experimental Function for cross validating with formward testing on history
+ */
+function crateForwardGaps(ticks: Candle[]): Array<Candle[]> {
+    const totalSize = ticks.length;
+    const fwd1Size = totalSize * 0.1;
+    const fwd2Size = totalSize * 0.1;
+    const fwd3Size = totalSize * 0.1;
+    const fwd4Size = totalSize * 0.1;
+    const interval = Math.round(totalSize / 4);
+    const segment1 = ticks.slice(0, interval - fwd1Size);
+    const segment2 = ticks.slice(interval, interval * 2 - fwd2Size);
+    const segment3 = ticks.slice(interval * 2, interval * 3 - fwd3Size);
+    const segment4 = ticks.slice(interval * 3, interval * 4 - fwd4Size);
+
+    return [segment1, segment2, segment3, segment4];
 }
