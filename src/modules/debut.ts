@@ -31,6 +31,7 @@ export abstract class Debut implements DebutCore {
     private orderBookSubscribtion: Promise<() => void> | null;
     private orderCounter = 0;
     private transaction: Transaction;
+    private marketTick: Candle;
 
     constructor(transport: BaseTransport, opts: DebutOptions) {
         const defaultOptions: Partial<DebutOptions> = {
@@ -158,7 +159,7 @@ export abstract class Debut implements DebutCore {
      * Place market order with type
      */
     public async createOrder(operation: OrderType): Promise<ExecutedOrder> {
-        const { c: price } = this.currentCandle || {};
+        const { c: price } = this.marketTick;
 
         if (!price) {
             throw this.createCoreError(
@@ -272,8 +273,10 @@ export abstract class Debut implements DebutCore {
     }
 
     private handler = async (tick: Candle) => {
-        const change = this.currentCandle && this.currentCandle.time !== tick.time;
+        const change = this.marketTick && this.marketTick.time !== tick.time;
         const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeTick, tick);
+
+        this.marketTick = tick;
 
         if (skip) {
             return;
@@ -288,13 +291,10 @@ export abstract class Debut implements DebutCore {
         } else {
             // If the time has changed and there was a previous tick move forward candles sequence and add new zero market tick
             const prevTick = this.currentCandle;
-            /** XXX apply new currentCandle data for using in orders and plugin events time as currentCandle time
-             * that righ using new canle first tick time as any event time
-             */
-            this.updateCandles(tick);
             await this.pluginDriver.asyncReduce(PluginHook.onCandle, prevTick);
             await this.onCandle(prevTick);
             await this.pluginDriver.asyncReduce(PluginHook.onAfterCandle, prevTick);
+            this.updateCandles(tick);
         }
 
         // Hooks onTick calling later, after candles has been updated
@@ -342,7 +342,7 @@ export abstract class Debut implements DebutCore {
     }
 
     private createPending(type: OrderType, lots: number, details?: Partial<PendingOrder>): PendingOrder {
-        const { c: price, time } = this.currentCandle;
+        const { c: price, time } = this.marketTick;
 
         return {
             ...details,
