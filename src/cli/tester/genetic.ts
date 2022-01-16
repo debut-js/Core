@@ -23,6 +23,7 @@ export class GeneticWrapper {
     private scoreLookup: Map<string, number> = new Map();
     private lastIteration = false;
     private baseOpts: DebutOptions;
+    private forwardSegments: Array<Candle[]> = [];
 
     constructor(private options: GenticWrapperOptions) {
         this.internalOptions = {
@@ -79,11 +80,7 @@ export class GeneticWrapper {
             }
 
             if (this.options.fwdGaps) {
-                const gaps = crateForwardGaps(ticks);
-
-                for (let i = 0; i < gaps.length; i++) {
-                    this.transport.setTicks(gaps[i]);
-                }
+                this.forwardSegments = crateForwardGaps(ticks);
             } else {
                 this.transport.setTicks(ticks);
             }
@@ -91,6 +88,10 @@ export class GeneticWrapper {
             await this.genetic.seed();
 
             for (let i = 0; i < this.options.generations; i++) {
+                if (this.options.fwdGaps) {
+                    this.transport.setTicks(this.forwardSegments[i % this.forwardSegments.length]);
+                }
+
                 this.lastIteration = i === this.options.generations - 1;
 
                 const now = Date.now();
@@ -258,15 +259,15 @@ function getRandomByRange(range: SchemaDescriptor) {
  */
 function crateForwardGaps(ticks: Candle[]): Array<Candle[]> {
     const totalSize = ticks.length;
-    const fwd1Size = totalSize * 0.1;
-    const fwd2Size = totalSize * 0.1;
-    const fwd3Size = totalSize * 0.1;
-    const fwd4Size = totalSize * 0.1;
+    const fwd1Size = totalSize * 0.05;
+    const fwd2Size = totalSize * 0.05;
+    const fwd3Size = totalSize * 0.05;
+    const fwd4Size = totalSize * 0.05;
     const interval = Math.round(totalSize / 4);
     const segment1 = ticks.slice(0, interval - fwd1Size);
-    const segment2 = ticks.slice(interval, interval * 2 - fwd2Size);
-    const segment3 = ticks.slice(interval * 2, interval * 3 - fwd3Size);
-    const segment4 = ticks.slice(interval * 3, interval * 4 - fwd4Size);
+    const segment2 = ticks.slice(interval - fwd1Size, interval * 2 - fwd2Size);
+    const segment3 = ticks.slice(interval * 2 - fwd2Size, interval * 3 - fwd3Size);
+    const segment4 = ticks.slice(interval * 3 - fwd3Size, interval * 4 - fwd4Size);
 
     return [segment1, segment2, segment3, segment4];
 }
