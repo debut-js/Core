@@ -24,7 +24,7 @@ export class TesterTransport implements BaseTransport {
     public opts: TesterTransportOptions;
     public complete: Promise<void>;
     private resolve: () => void;
-    private tickPhases: Array<Candle[]> = [];
+    private ticks: Array<Candle> = [];
 
     constructor(opts: TesterTransportOptions) {
         this.opts = opts;
@@ -34,7 +34,7 @@ export class TesterTransport implements BaseTransport {
     public async getInstrument(opts: DebutOptions) {
         const instrumentId = this.getInstrumentId(opts);
 
-        if (!this.tickPhases.length) {
+        if (!this.ticks.length) {
             throw new Error('transport is not ready, set ticks before bot.start() call');
         }
 
@@ -59,26 +59,20 @@ export class TesterTransport implements BaseTransport {
             console.log('OHLC Ticks is enabled, total ticks:', ticks.length);
         }
 
-        this.tickPhases.push(ticks);
+        this.ticks = ticks;
     }
 
-    public async run(waitFor?: boolean, onPhase?: (phase: number, isLast: boolean) => Promise<void>): Promise<void> {
+    public async run(waitFor?: boolean): Promise<void> {
         if (waitFor) {
             const prev = this.handlers.length;
             await promise.sleep(1000);
 
             if (prev !== this.handlers.length) {
-                return this.run(waitFor, onPhase);
+                return this.run(waitFor);
             }
         }
 
-        for (let i = 0; i < this.tickPhases.length; i++) {
-            await this.tickLoop(this.tickPhases[i]);
-
-            if (onPhase) {
-                await onPhase(i, i === this.tickPhases.length - 1);
-            }
-        }
+        await this.tickLoop(this.ticks);
     }
 
     public reset() {

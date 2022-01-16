@@ -100,7 +100,7 @@ export class GeneticWrapper {
                 }
 
                 // Запускаем транспорт в режиме ожидания пока не подпишется вся популяция
-                await this.transport.run(true, this.onPhase);
+                await this.transport.run(true);
                 await this.genetic.estimate();
 
                 this.genetic.population.forEach((pair) => {
@@ -225,13 +225,6 @@ export class GeneticWrapper {
 
         return bot;
     }
-
-    private onPhase = async (phase: number, isLast: boolean) => {
-        for (const pair of this.genetic.population) {
-            // Close All Orders between phases
-            await pair.entity.closeAll();
-        }
-    };
 
     private optimize = (a: Phenotype<DebutCore>, b: Phenotype<DebutCore>) => {
         const ascore = this.scoreLookup.get(a.entity.id);
