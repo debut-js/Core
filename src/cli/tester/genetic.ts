@@ -265,9 +265,9 @@ function crateForwardGaps(ticks: Candle[]): Array<Candle[]> {
     const fwd4Size = totalSize * 0.05;
     const interval = Math.round(totalSize / 4);
     const segment1 = ticks.slice(0, interval - fwd1Size);
-    const segment2 = ticks.slice(interval - fwd1Size, interval * 2 - fwd2Size);
-    const segment3 = ticks.slice(interval * 2 - fwd2Size, interval * 3 - fwd3Size);
-    const segment4 = ticks.slice(interval * 3 - fwd3Size, interval * 4 - fwd4Size);
+    const segment2 = ticks.slice(interval - fwd1Size * 2, interval * 2 - fwd2Size);
+    const segment3 = ticks.slice(interval * 2 - fwd2Size * 2, interval * 3 - fwd3Size);
+    const segment4 = ticks.slice(interval * 3 - fwd3Size * 2, interval * 4 - fwd4Size);
 
     return [segment1, segment2, segment3, segment4];
 }
