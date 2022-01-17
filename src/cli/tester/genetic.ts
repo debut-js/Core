@@ -257,10 +257,6 @@ export class GeneticWrapper {
         const bot = await this.options.create(this.transport, config, WorkingEnv.genetic);
         bot.id = hash;
 
-        if (!this.scoreLookup.has(hash)) {
-            await bot.start();
-        }
-
         return bot;
     }
 
