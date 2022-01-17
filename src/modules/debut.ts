@@ -19,7 +19,7 @@ import { Transaction } from '../transports/utils/transaction';
 
 export abstract class Debut implements DebutCore {
     public id: string;
-    public dispose: () => void;
+    public dispose: () => Promise<void>;
     public instrument: Instrument;
     public opts: DebutOptions;
     public orders: Array<ExecutedOrder | PendingOrder> = [];

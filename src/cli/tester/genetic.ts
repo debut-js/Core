@@ -23,7 +23,7 @@ export class GeneticWrapper {
     private scoreLookup: Map<string, number> = new Map();
     private lastIteration = false;
     private baseOpts: DebutOptions;
-    private forwardSegments: Array<Candle[]> = [];
+    private forwardSegments: Array<Candle[][]> = [];
 
     constructor(private options: GenticWrapperOptions) {
         this.internalOptions = {
@@ -79,46 +79,66 @@ export class GeneticWrapper {
                 console.log(`\n----- Genetic Start with ${ticks.length} candles ----- \n`);
             }
 
-            if (this.options.fwdGaps) {
-                this.forwardSegments = crateForwardGaps(ticks);
-            } else {
-                this.transport.setTicks(ticks);
-            }
+            const segments = this.options.fwdGaps ? 4 : 1;
+            const walkTestSize = this.options.fwdGaps ? 0.25 : 0;
 
+            this.forwardSegments = crateForwardGaps(ticks, segments, walkTestSize);
             await this.genetic.seed();
 
-            for (let i = 0; i < this.options.generations; i++) {
-                if (this.options.fwdGaps) {
-                    this.transport.setTicks(this.forwardSegments[i % this.forwardSegments.length]);
+            for (let k = 0; k < this.forwardSegments.length; k++) {
+                const [backtest, walkTest] = this.forwardSegments[k];
+
+                for (let i = 0; i < this.options.generations; i++) {
+                    this.transport.setTicks(backtest);
+
+                    await this.subscribePopulation();
+
+                    this.lastIteration = i === this.options.generations - 1;
+
+                    const now = Date.now();
+
+                    if (this.options.log) {
+                        console.log('Generation: ', i);
+                    }
+
+                    await this.transport.run();
+                    await this.genetic.estimate();
+
+                    if (this.options.log) {
+                        console.log('Generation time: ', (Date.now() - now) / 1000, 's');
+                        console.log('Stats: ', this.genetic.stats);
+                    }
+
+                    await this.disposePopulation();
+
+                    // Если это последняя итерация дальше скрещивать не нужно
+                    if (!this.lastIteration) {
+                        this.transport.reset();
+                        await this.genetic.breed();
+                    }
+
+                    this.deduplicateLookup.clear();
                 }
 
-                this.lastIteration = i === this.options.generations - 1;
+                if (walkTest?.length > 0) {
+                    console.log('Walk forward test started');
 
-                const now = Date.now();
-                if (this.options.log) {
-                    console.log('Generation: ', i);
+                    this.transport.reset();
+                    this.scoreLookup.clear();
+                    this.transport.setTicks(walkTest);
+
+                    await this.subscribePopulation();
+                    await this.transport.run();
+                    await this.genetic.estimate();
+
+                    this.genetic.population = this.genetic.population.filter((item) => {
+                        const score = this.scoreLookup.get(item.entity.id);
+
+                        return score && score > 0;
+                    });
+
+                    console.log('Population after walk forward test:', this.genetic.population.length);
                 }
-
-                // Запускаем транспорт в режиме ожидания пока не подпишется вся популяция
-                await this.transport.run(true);
-                await this.genetic.estimate();
-
-                this.genetic.population.forEach((pair) => {
-                    pair.entity.dispose();
-                });
-
-                if (this.options.log) {
-                    console.log('Generation time: ', (Date.now() - now) / 1000, 's');
-                    console.log('Stats: ', this.genetic.stats);
-                }
-
-                this.transport.reset();
-                // Если это последняя итерация дальше скрещивать не нужно
-                if (!this.lastIteration) {
-                    await this.genetic.breed();
-                }
-
-                this.deduplicateLookup.clear();
             }
 
             return this.genetic
@@ -129,6 +149,24 @@ export class GeneticWrapper {
             console.log(e);
 
             return [];
+        }
+    }
+
+    private async subscribePopulation() {
+        for (let i = 0; i < this.genetic.population.length; i++) {
+            const pair = this.genetic.population[i];
+
+            if (!this.scoreLookup.has(pair.entity.id)) {
+                await pair.entity.start();
+            }
+        }
+    }
+
+    private async disposePopulation() {
+        for (let i = 0; i < this.genetic.population.length; i++) {
+            const pair = this.genetic.population[i];
+
+            await pair.entity.dispose();
         }
     }
 
@@ -250,17 +288,23 @@ function getRandomByRange(range: SchemaDescriptor) {
 /**
  * @experimental Function for cross validating with formward testing on history
  */
-function crateForwardGaps(ticks: Candle[]): Array<Candle[]> {
+function crateForwardGaps(ticks: Candle[], segments = 4, fwd = 0.25) {
     const totalSize = ticks.length;
-    const fwd1Size = totalSize * 0.05;
-    const fwd2Size = totalSize * 0.05;
-    const fwd3Size = totalSize * 0.05;
-    const fwd4Size = totalSize * 0.05;
-    const interval = Math.round(totalSize / 4);
-    const segment1 = ticks.slice(0, interval - fwd1Size);
-    const segment2 = ticks.slice(interval - fwd1Size * 2, interval * 2 - fwd2Size);
-    const segment3 = ticks.slice(interval * 2 - fwd2Size * 2, interval * 3 - fwd3Size);
-    const segment4 = ticks.slice(interval * 3 - fwd3Size * 2, interval * 4 - fwd4Size);
+    const fwdSize = Math.round((totalSize / segments) * fwd);
+    const intervalSize = Math.round(totalSize / segments);
+    const pairs: Array<Candle[][]> = [];
 
-    return [segment1, segment2, segment3, segment4];
+    let startPos = 0;
+    let endPos = intervalSize;
+
+    for (let i = 0; i < segments; i++) {
+        const pair = [ticks.slice(startPos, endPos - fwdSize), ticks.slice(endPos - fwdSize, endPos)];
+
+        startPos += fwdSize;
+        endPos += fwdSize;
+
+        pairs.push(pair);
+    }
+
+    return pairs;
 }

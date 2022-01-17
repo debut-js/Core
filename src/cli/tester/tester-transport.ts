@@ -1,4 +1,4 @@
-import { promise, math } from '@debut/plugin-utils';
+import { math } from '@debut/plugin-utils';
 import {
     BaseTransport,
     TickHandler,
@@ -20,10 +20,8 @@ type TesterTransportOptions = {
 
 export class TesterTransport implements BaseTransport {
     public done: Promise<boolean>;
-    private handlers: TickHandler[] = [];
+    private handlers: Set<TickHandler> = new Set();
     public opts: TesterTransportOptions;
-    public complete: Promise<void>;
-    private resolve: () => void;
     private ticks: Array<Candle> = [];
 
     constructor(opts: TesterTransportOptions) {
@@ -62,37 +60,19 @@ export class TesterTransport implements BaseTransport {
         this.ticks = ticks;
     }
 
-    public async run(waitFor?: boolean): Promise<void> {
-        if (waitFor) {
-            const prev = this.handlers.length;
-            await promise.sleep(1000);
-
-            if (prev !== this.handlers.length) {
-                return this.run(waitFor);
-            }
-        }
-
+    public async run(): Promise<void> {
         await this.tickLoop(this.ticks);
     }
 
     public reset() {
-        this.handlers.length = 0;
-
-        // Установим новый ресолвер
-        this.complete = new Promise((resolve) => {
-            this.resolve = resolve;
-        });
+        this.handlers.clear();
     }
 
     public subscribeToTick(opts: DebutOptions, handler: TickHandler) {
-        this.handlers.push(handler);
+        this.handlers.add(handler);
 
         return Promise.resolve(() => {
-            const idx = this.handlers.indexOf(handler);
-
-            if (idx !== -1) {
-                this.handlers.splice(idx, 1);
-            }
+            this.handlers.delete(handler);
         });
     }
 
@@ -121,20 +101,19 @@ export class TesterTransport implements BaseTransport {
     private async tickLoop(ticks: Candle[]) {
         let tickIdx = 0;
         let tick = ticks[0];
+        const handlers = Array.from(this.handlers.keys());
 
         while (tick) {
-            let handler = this.handlers[0];
+            let handler = handlers[0];
             let handlerIdx = 0;
 
             while (handler) {
                 await handler(tick);
-                handler = this.handlers[++handlerIdx];
+                handler = handlers[++handlerIdx];
             }
 
             tick = ticks[++tickIdx];
         }
-
-        this.resolve();
     }
 
     private getInstrumentId(opts: DebutOptions) {
