@@ -13,6 +13,7 @@ type Params = {
     gap?: number;
     amount?: number;
     crypt?: boolean;
+    walkFwd: 'aggressive' | 'conservative';
 };
 
 const args = cli.getArgs<Params>();
@@ -38,6 +39,7 @@ const schema: cli.BotData | null = cli.getBotData(bot);
         log,
         ohlc,
         gapDays: gap,
+        walkFwd,
     };
     const { configs, meta } = schema;
     const cfgKeys = Object.keys(configs);
