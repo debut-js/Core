@@ -18,7 +18,7 @@ type Params = {
 
 const args = cli.getArgs<Params>();
 
-const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, crypt } = args;
+const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, crypt, walkFwd } = args;
 const schema: cli.BotData | null = cli.getBotData(bot);
 
 (async function () {
