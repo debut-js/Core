@@ -40,10 +40,6 @@ export class GeneticWrapper {
             deduplicate: this.deduplicate,
         };
 
-        if (options.fwdGaps) {
-            this.internalOptions.optimize = this.optimize;
-        }
-
         this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
     }
 
@@ -79,8 +75,8 @@ export class GeneticWrapper {
                 console.log(`\n----- Genetic Start with ${ticks.length} candles ----- \n`);
             }
 
-            const segments = this.options.fwdGaps ? 4 : 1;
-            const walkTestSize = this.options.fwdGaps ? 0.25 : 0;
+            const segments = this.options.walkFwd ? 4 : 1;
+            const walkTestSize = this.options.walkFwd ? 0.25 : 0;
 
             this.forwardSegments = crateForwardGaps(ticks, segments, walkTestSize);
             await this.genetic.seed();
@@ -109,6 +105,13 @@ export class GeneticWrapper {
                         console.log('Stats: ', this.genetic.stats);
                     }
 
+                    if (walkTest?.length > 0 && this.options.walkFwd === 'aggressive') {
+                        const prevLookup = new Map(this.scoreLookup);
+                        this.scoreLookup.clear();
+                        await this.walkForwardOptimize(walkTest);
+                        this.scoreLookup = prevLookup;
+                    }
+
                     await this.disposePopulation();
 
                     // Если это последняя итерация дальше скрещивать не нужно
@@ -120,24 +123,10 @@ export class GeneticWrapper {
                     this.deduplicateLookup.clear();
                 }
 
-                if (walkTest?.length > 0) {
-                    console.log('Walk forward test started');
-
-                    this.transport.reset();
+                if (walkTest?.length > 0 && this.options.walkFwd === 'conservative') {
                     this.scoreLookup.clear();
-                    this.transport.setTicks(walkTest);
-
-                    await this.subscribePopulation();
-                    await this.transport.run();
-                    await this.genetic.estimate();
-
-                    this.genetic.population = this.genetic.population.filter((item) => {
-                        const score = this.scoreLookup.get(item.entity.id);
-
-                        return score && score > 0;
-                    });
-
-                    console.log('Population after walk forward test:', this.genetic.population.length);
+                    await this.walkForwardOptimize(walkTest);
+                    await this.disposePopulation();
                 }
             }
 
@@ -260,12 +249,27 @@ export class GeneticWrapper {
         return bot;
     }
 
-    private optimize = (a: Phenotype<DebutCore>, b: Phenotype<DebutCore>) => {
-        const ascore = this.scoreLookup.get(a.entity.id);
-        const bscore = this.scoreLookup.get(b.entity.id);
+    /**
+     * Walk forward optimization for genetical algorithms
+     */
+    private async walkForwardOptimize(walkTest: Candle[]) {
+        console.log('Walk forward test started');
 
-        return ascore >= bscore;
-    };
+        this.transport.setTicks(walkTest);
+
+        await this.transport.run();
+        await this.genetic.estimate();
+
+        this.genetic.population = this.genetic.population.filter((item) => {
+            const score = this.scoreLookup.get(item.entity.id);
+
+            return score && score > 0;
+        });
+
+        console.log('Population after walk forward test:', this.genetic.population.length);
+
+        this.transport.reset();
+    }
 }
 
 function getRandomByRange(range: SchemaDescriptor) {

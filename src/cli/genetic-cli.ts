@@ -13,11 +13,11 @@ type GeneticParams = {
     ohlc?: boolean;
     gap?: number;
     best?: number;
-    fwdGaps?: boolean;
+    walkFwd?: 'aggressive' | 'conservative';
 };
 
 const args = cli.getArgs() as GeneticParams;
-const { bot, ticker, log, amount = 500, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, best = 5, fwdGaps } = args;
+const { bot, ticker, log, amount = 500, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, best = 5, walkFwd } = args;
 
 const schema: cli.BotData | null = cli.getBotData(bot);
 
@@ -42,7 +42,7 @@ const schema: cli.BotData | null = cli.getBotData(bot);
         create: meta.create,
         ticksFilter: meta.ticksFilter,
         best,
-        fwdGaps,
+        walkFwd,
     };
 
     const genetic = new GeneticWrapper(options);

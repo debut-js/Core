@@ -30,13 +30,13 @@
         "@master-chief/alpaca": "^6.3.11",
         "@tinkoff/invest-openapi-js-sdk": "^1.5.0",
         "@types/ws": "^8.2.2",
-        "async-genetic": "^1.4.3",
+        "async-genetic": "^1.4.4",
         "binance-api-node": "0.11.29",
         "cli-progress": "^3.10.0",
         "node-fetch": "^3.1.0"
     },
     "devDependencies": {
-        "@debut/types": "^3.0.1",
+        "@debut/types": "^3.0.3",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.9.2",
         "@types/jest": "^27.4.0",
