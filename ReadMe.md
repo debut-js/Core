@@ -55,6 +55,10 @@ On the basis of candlestick aggregation, a mechanism for filling candles of any 
 <td align="center"> ✅ </td>
 </tr>
 <tr>
+<td> Walk Forward Optimization </td>
+<td align="center"> ✅ </td>
+<td align="center"> ✅ </td>
+</tr>
 <tr>
 <td> M1 candlestick data for tick emulation </td>
 <td align="center"> ❌ </td>
@@ -76,9 +80,6 @@ On the basis of candlestick aggregation, a mechanism for filling candles of any 
 <td align="center"> ✅ </td>
 </tr>
 </tbody> </table>
-
-## Strategy Import from TradingView ($1000 [buy now!](https://www.patreon.com/bePatron?u=57560983))
-If you need help transferring a strategy from TradingView to the Debut ecosystem. Transferring a strategy takes up to 3 business days. You can also request to create a strategy based on an article or your own formula.
 
 We are streaming Enterprise-based deals live on our [telegram channel](https://t.me/debutjs)
 
