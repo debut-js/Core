@@ -41,6 +41,14 @@ export class GeneticWrapper {
         };
 
         this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
+
+        if (!options.validateSchema) {
+            options.validateSchema = (cfg: DebutOptions) => cfg;
+        }
+
+        if (!options.validateForwardStats) {
+            options.validateForwardStats = () => true;
+        }
     }
 
     async start(schema: GeneticSchema, opts: DebutOptions) {
@@ -83,6 +91,9 @@ export class GeneticWrapper {
 
             for (let k = 0; k < this.forwardSegments.length; k++) {
                 const [backtest, walkTest] = this.forwardSegments[k];
+                console.log(
+                    `Candles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
+                );
 
                 for (let i = 0; i < this.options.generations; i++) {
                     this.transport.setTicks(backtest);
@@ -107,9 +118,15 @@ export class GeneticWrapper {
 
                     if (walkTest?.length > 0 && this.options.walkFwd === 'aggressive') {
                         const prevLookup = new Map(this.scoreLookup);
+                        const prevStats = new Map(this.configLookup);
+
                         this.scoreLookup.clear();
+                        this.configLookup.clear();
+
                         await this.walkForwardOptimize(walkTest);
+
                         this.scoreLookup = prevLookup;
+                        this.configLookup = prevStats;
                     }
 
                     await this.disposePopulation();
@@ -125,6 +142,7 @@ export class GeneticWrapper {
 
                 if (walkTest?.length > 0 && this.options.walkFwd === 'conservative') {
                     this.scoreLookup.clear();
+                    await this.subscribePopulation();
                     await this.walkForwardOptimize(walkTest);
                     await this.disposePopulation();
                 }
@@ -255,16 +273,26 @@ export class GeneticWrapper {
     private async walkForwardOptimize(walkTest: Candle[]) {
         console.log('Walk forward test started');
 
+        const population: Phenotype<DebutCore>[] = [];
         this.transport.setTicks(walkTest);
 
         await this.transport.run();
         await this.genetic.estimate();
 
-        this.genetic.population = this.genetic.population.filter((item) => {
+        for (let i = 0; i < this.genetic.population.length; i++) {
+            const item = this.genetic.population[i];
             const score = this.scoreLookup.get(item.entity.id);
+            const stats = this.configLookup.get(item.entity.id);
+            const isValid = this.options.validateForwardStats(stats);
 
-            return score && score > 0;
-        });
+            if (score && score > 0 && isValid) {
+                population.push(item);
+            } else {
+                await item.entity.dispose();
+            }
+        }
+
+        this.genetic.population = population;
 
         console.log('Population after walk forward test:', this.genetic.population.length);
 
