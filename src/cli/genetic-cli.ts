@@ -37,6 +37,7 @@ const schema: cli.BotData | null = cli.getBotData(bot);
         ohlc,
         gapDays: gap,
         validateSchema: meta.validate,
+        validateForwardStats: meta.validateStats,
         score: meta.score,
         stats: meta.stats,
         create: meta.create,

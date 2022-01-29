@@ -32,6 +32,7 @@ const schema: cli.BotData | null = cli.getBotData(bot);
         stats: schema.meta.stats,
         ticksFilter: schema.meta.ticksFilter,
         validateSchema: schema.meta.validate,
+        validateForwardStats: schema.meta.validateStats,
         create: schema.meta.create,
         days,
         generations: gen,
