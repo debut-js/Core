@@ -371,7 +371,7 @@ export class BinanceTransport implements BaseTransport {
     }
 
     private canRetry(e: Error) {
-        if (e.message.includes("ReduceOnly Order is rejected")) {
+        if (e.message.includes('ReduceOnly Order is rejected')) {
             return false;
         }
 
