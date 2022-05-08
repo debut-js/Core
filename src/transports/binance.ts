@@ -232,7 +232,7 @@ export class BinanceTransport implements BaseTransport {
                 throw res;
             }
         } catch (e) {
-            if (order.retries <= 10) {
+            if (order.retries <= 10 && this.canRetry(e)) {
                 debug.logDebug('error order place', e);
                 order.retries++;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
@@ -368,6 +368,14 @@ export class BinanceTransport implements BaseTransport {
 
     private getInstrumentId(opts: DebutOptions) {
         return `${opts.ticker}:${opts.instrumentType}`;
+    }
+
+    private canRetry(e: Error) {
+        if (e.message.includes("ReduceOnly Order is rejected")) {
+            return false;
+        }
+
+        return true;
     }
 }
 
