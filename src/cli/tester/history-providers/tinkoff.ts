@@ -1,21 +1,21 @@
-import OpenAPI from '@tinkoff/invest-openapi-js-sdk';
+import { TinkoffInvestApi } from 'tinkoff-invest-api';
+import { InstrumentIdType } from 'tinkoff-invest-api/dist/generated/instruments';
 import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date } from '@debut/plugin-utils';
 import { TimeFrame } from '@debut/types';
 import { RequestFn } from '../history';
+import { GetCandlesRequest } from 'tinkoff-invest-api/dist/generated/marketdata';
 
 const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
-const apiURL = 'https://api-invest.tinkoff.ru/openapi';
-const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
 
-let client: OpenAPI = null;
+let client: TinkoffInvestApi = null;
 let figiCache: Map<string, string> = null;
 
 function getClient() {
     if (!client) {
         figiCache = new Map();
-        client = new OpenAPI({ apiURL, secretToken: token, socketURL });
+        client = new TinkoffInvestApi({ token });
     }
 
     return client;
@@ -23,8 +23,13 @@ function getClient() {
 
 async function getFigi(ticker: string) {
     if (!figiCache?.has(ticker)) {
-        const { figi } = await getClient().searchOne({ ticker });
-        figiCache.set(ticker, figi);
+        const { instrument } = await getClient().instruments.getInstrumentBy({
+            id: ticker,
+            classCode: 'SPBXM',
+            idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
+        });
+
+        figiCache.set(ticker, instrument.figi);
     }
 
     return figiCache.get(ticker);
@@ -38,17 +43,14 @@ export const requestTinkoff: RequestFn = async (from: number, to: number, ticker
         return Promise.resolve([]);
     }
 
-    const payload = {
-        from: date.toIsoString(from),
-        to: date.toIsoString(to),
+    const payload: GetCandlesRequest = {
+        from: new Date(from),
+        to: new Date(to),
         figi,
         interval: convertTimeFrame(interval),
     };
-    const candles = await getClient()
-        .candlesGet(payload)
-        .then((data) => data.candles);
 
-    const result = candles.map(transformTinkoffCandle);
-
-    return result;
+    return getClient()
+        .marketdata.getCandles(payload)
+        .then((data) => data.candles.map(transformTinkoffCandle));
 };

@@ -12,12 +12,14 @@ import {
     TickHandler,
     TimeFrame,
 } from '@debut/types';
-import OpenAPI, {
-    Candle as TinkoffCandle,
-    CandleStreaming,
-    CandleResolution,
-    OrderbookStreaming,
-} from '@tinkoff/invest-openapi-js-sdk';
+import {
+    CandleInterval,
+    HistoricCandle,
+    MarketDataRequest,
+    SubscriptionAction,
+    SubscriptionInterval,
+} from 'tinkoff-sdk-grpc-js/dist/generated/marketdata';
+import { createSdk } from 'tinkoff-sdk-grpc-js';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { Transaction } from './utils/transaction';
 import { placeSandboxOrder } from './utils/utils';
@@ -26,30 +28,72 @@ const badStatus = ['Decline', 'Cancelled', 'Rejected', 'PendingCancel'];
 
 type TinkoffTransportArgs = { token: string; proxyPort: number | string };
 
-export function transformTinkoffCandle(candle: TinkoffCandle | CandleStreaming): Candle {
-    return { o: candle.o, h: candle.h, l: candle.l, c: candle.c, time: Date.parse(candle.time), v: candle.v };
+/**
+ * Хелперы.
+ * See: https://tinkoff.github.io/investAPI/faq_custom_types/
+ */
+
+import ms, { StringValue } from 'ms';
+import { DeepPartial, MoneyValue, Quotation } from 'tinkoff-sdk-grpc-js/dist/generated/common';
+import { InstrumentIdType } from 'tinkoff-sdk-grpc-js/dist/generated/instruments';
+export class Helpers {
+    static toQuotation(value: number): Quotation {
+        const units = Math.floor(value);
+        const nano = (value - units) * 1000000000;
+        return { units, nano };
+    }
+
+    static toMoney(value: number, currency: string): MoneyValue {
+        const { units, nano } = Helpers.toQuotation(value);
+        return { units, nano, currency };
+    }
+
+    static toNumber(value: Quotation | MoneyValue | undefined) {
+        return value ? value.units + value.nano / 1000000000 : value;
+    }
+
+    /**
+     * Возвращает интервал времени в формате { from, to }.
+     * Для смещения используется формат из https://github.com/vercel/ms
+     */
+    static fromTo(offset: string, base = new Date()) {
+        // Не использую StringValue, т.к. с ним больше мороки: нужно импортить при использовании итд.
+        const offsetMs = ms(offset as StringValue);
+        const date = new Date(base.valueOf() + offsetMs);
+        const [from, to] = offsetMs > 0 ? [base, date] : [date, base];
+        return { from, to };
+    }
 }
 
-export function convertTimeFrame(interval: TimeFrame): CandleResolution {
+export function transformTinkoffCandle(candle: HistoricCandle): Candle {
+    return {
+        o: Helpers.toNumber(candle.open),
+        h: Helpers.toNumber(candle.high),
+        l: Helpers.toNumber(candle.low),
+        c: Helpers.toNumber(candle.close),
+        time: candle.time.getTime(),
+        v: candle.volume,
+    };
+}
+
+export function convertTimeFrame(interval: TimeFrame): CandleInterval {
     switch (interval) {
         case '1min':
-            return '1min';
+            return CandleInterval.CANDLE_INTERVAL_1_MIN;
         case '5min':
-            return '5min';
+            return CandleInterval.CANDLE_INTERVAL_5_MIN;
         case '15min':
-            return '15min';
-        case '30min':
-            return '30min';
+            return CandleInterval.CANDLE_INTERVAL_15_MIN;
         case '1h':
-            return 'hour';
+            return CandleInterval.CANDLE_INTERVAL_HOUR;
         case 'day':
-            return 'day';
+            return CandleInterval.CANDLE_INTERVAL_DAY;
     }
 
     throw new DebutError(ErrorEnvironment.Transport, 'Unsupported interval');
 }
 export class TinkoffTransport implements BaseTransport {
-    protected api: OpenAPI;
+    protected api: ReturnType<typeof createSdk>;
     private instruments: Map<string, Instrument> = new Map();
 
     constructor(token: string) {
@@ -57,10 +101,7 @@ export class TinkoffTransport implements BaseTransport {
             throw new DebutError(ErrorEnvironment.Transport, 'token is incorrect');
         }
 
-        const apiURL = 'https://api-invest.tinkoff.ru/openapi';
-        let socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
-
-        this.api = new OpenAPI({ apiURL, socketURL, secretToken: token });
+        this.api = createSdk(token, 'debut');
     }
 
     public async getInstrument(opts: DebutOptions) {
@@ -71,13 +112,17 @@ export class TinkoffTransport implements BaseTransport {
             return this.instruments.get(instrumentId);
         }
 
-        const res = await this.api.searchOne({ ticker });
+        const res = await this.api.instruments.getInstrumentBy({
+            id: ticker,
+            classCode: 'SPBXM',
+            idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
+        });
 
         const instrument: Instrument = {
-            figi: res.figi,
-            ticker: res.ticker,
-            lot: res.lot,
-            minQuantity: res.minQuantity,
+            figi: res.instrument.figi,
+            ticker: res.instrument.ticker,
+            lot: res.instrument.lot,
+            minQuantity: res.instrument.lot,
             minNotional: 0,
             lotPrecision: 1, // Tinkoff support only integer lots format
             id: instrumentId,
@@ -196,6 +241,19 @@ export class TinkoffTransport implements BaseTransport {
 
             handler({ bids, asks });
         };
+    }
+
+    private async *createSubscriptionCandleRequest(
+        figi: string,
+        interval: TimeFrame,
+    ): AsyncIterable<DeepPartial<MarketDataRequest>> {
+        let stop = false;
+        yield MarketDataRequest.fromPartial({
+            subscribeCandlesRequest: {
+                subscriptionAction: SubscriptionAction.SUBSCRIPTION_ACTION_SUBSCRIBE,
+                instruments: [{ figi, interval: SubscriptionInterval.SUBSCRIPTION_INTERVAL_UNSPECIFIED }],
+            },
+        });
     }
 
     // @deprecated
