@@ -61,6 +61,7 @@ import { Transaction } from './utils/transaction';
  */
 
 const badStatus = ['CANCELED', 'EXPIRED', 'PENDING_CANCEL', 'REJECTED'];
+const ignoredErrorsList = ['Margin is insufficient', 'ReduceOnly Order is rejected'];
 export class BinanceTransport implements BaseTransport {
     public api: ReturnType<typeof Binance>;
     protected instruments: Map<string, Instrument> = new Map();
@@ -371,8 +372,10 @@ export class BinanceTransport implements BaseTransport {
     }
 
     private canRetry(e: Error) {
-        if (e.message.includes('ReduceOnly Order is rejected')) {
-            return false;
+        for (const ignoreText of ignoredErrorsList) {
+            if (e.message.includes(ignoreText)) {
+                return false;
+            }
         }
 
         return true;
