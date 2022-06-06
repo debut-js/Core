@@ -1,0 +1,216 @@
+import { debug } from '@debut/plugin-utils';
+import {
+    BaseTransport,
+    Candle,
+    DebutOptions,
+    DepthHandler,
+    DepthOrder,
+    ExecutedOrder,
+    Instrument,
+    OrderType,
+    PendingOrder,
+    TickHandler,
+    TimeFrame,
+} from '@debut/types';
+import { TinkoffInvestApi, Helpers } from 'tinkoff-invest-api';
+import { TinkoffApiError } from 'tinkoff-invest-api/dist/api-error';
+import { InstrumentIdType } from 'tinkoff-invest-api/dist/generated/instruments';
+import {
+    SubscriptionInterval,
+    Candle as TinkoffStreamCandle,
+    Order as TinkoffStreamOrder,
+} from 'tinkoff-invest-api/dist/generated/marketdata';
+import { OrderDirection, OrderType as TinkoffOrderType } from 'tinkoff-invest-api/dist/generated/orders';
+import { Status } from 'nice-grpc';
+import { DebutError, ErrorEnvironment } from '../modules/error';
+import { placeSandboxOrder } from './utils/utils';
+
+export class TinkoffTransport implements BaseTransport {
+    protected api: TinkoffInvestApi;
+    private instruments: Map<string, Instrument> = new Map();
+
+    constructor(token: string) {
+        if (!token) {
+            throw new DebutError(ErrorEnvironment.Transport, 'token is incorrect');
+        }
+
+        this.api = new TinkoffInvestApi({ token, appName: 'debut' });
+    }
+
+    public async getInstrument(opts: DebutOptions) {
+        const { ticker } = opts;
+        const instrumentId = this.getInstrumentId(opts);
+
+        if (this.instruments.has(instrumentId)) {
+            return this.instruments.get(instrumentId);
+        }
+
+        // todo: list exchanges?
+        const res = await this.findInstrumentByTicker(ticker, ['SPBXM', 'TQBR']);
+
+        if (!res) {
+            throw new DebutError(ErrorEnvironment.Transport, `Instrument not found: ${ticker}`);
+        }
+
+        const instrument: Instrument = {
+            figi: res.instrument.figi,
+            ticker: res.instrument.ticker,
+            lot: res.instrument.lot,
+            minQuantity: res.instrument.lot,
+            minNotional: 0,
+            lotPrecision: 1, // Tinkoff support only integer lots format
+            id: instrumentId,
+            type: 'SPOT', // Other types does not supported yet
+        };
+
+        this.instruments.set(instrumentId, instrument);
+
+        return instrument;
+    }
+
+    public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
+        const { type, lots, sandbox, learning } = order;
+
+        order.retries = order.retries || 0;
+
+        if (sandbox || learning) {
+            return placeSandboxOrder(order, opts);
+        }
+
+        const { figi } = await this.getInstrument(opts);
+
+        try {
+            const direction =
+                type === OrderType.BUY ? OrderDirection.ORDER_DIRECTION_BUY : OrderDirection.ORDER_DIRECTION_SELL;
+
+            const res = await this.api.orders.postOrder({
+                accountId: '', // todo: how to get account id here?
+                figi,
+                quantity: lots,
+                direction,
+                orderType: TinkoffOrderType.ORDER_TYPE_MARKET,
+                orderId: Math.random().toString(),
+            });
+
+            const executedOrder: ExecutedOrder = {
+                ...order,
+                orderId: res.orderId,
+                executedLots: res.lotsExecuted,
+                lots: res.lotsRequested,
+                commission: {
+                    value: Helpers.toNumber(res.initialCommission),
+                    currency: res.initialCommission.currency,
+                },
+            };
+
+            // TODO: prices hack does not working yet!
+            // const prices = await this.updateOrderPrices(order);
+
+            // order = { ...order, ...prices };
+            // order.time = tickTime;
+
+            return executedOrder;
+        } catch (e) {
+            // todo: support retries (separate fn?)
+            debug.logDebug(' retry failure with order', order);
+            throw new DebutError(ErrorEnvironment.Transport, e.payload?.message || e.message);
+        }
+    }
+
+    public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
+        try {
+            const { figi } = await this.getInstrument(opts);
+            const interval = transformTimeFrameToSubscriptionsInterval(opts.interval);
+            const unsubscribe = this.api.stream.market.on('data', ({ candle }) => {
+                if (candle) {
+                    handler(transformTinkoffStreamCandle(candle));
+                }
+            });
+            this.api.stream.market.watch({ candles: [{ figi, interval }] });
+            return () => {
+                // todo: dont remove figi instrument from cache?
+                this.instruments.delete(this.getInstrumentId(opts));
+                unsubscribe();
+            };
+        } catch (e) {
+            debug.logDebug(e);
+        }
+    }
+
+    public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
+        try {
+            const { figi } = await this.getInstrument(opts);
+            const unsubscribe = this.api.stream.market.on('data', ({ orderbook }) => {
+                if (orderbook) {
+                    const bids = orderbook.bids.map(transformTinkoffStreamOrder);
+                    const asks = orderbook.asks.map(transformTinkoffStreamOrder);
+                    handler({ bids, asks });
+                }
+            });
+            // todo: how to set depth?
+            this.api.stream.market.watch({ orderBook: [{ figi, depth: 1 }] });
+            return () => {
+                // todo: dont remove figi instrument from cache?
+                this.instruments.delete(this.getInstrumentId(opts));
+                unsubscribe();
+            };
+        } catch (e) {
+            debug.logDebug(e);
+        }
+    }
+
+    public prepareLots(lots: number) {
+        return Math.round(lots) || 1;
+    }
+
+    private async findInstrumentByTicker(ticker: string, classCodes: string[]) {
+        for (const classCode of classCodes) {
+            try {
+                return await this.api.instruments.getInstrumentBy({
+                    id: ticker,
+                    classCode,
+                    idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
+                });
+            } catch (e) {
+                if (e instanceof TinkoffApiError && e.code === Status.NOT_FOUND) {
+                    continue;
+                } else {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private getInstrumentId(opts: DebutOptions) {
+        return `${opts.ticker}:${opts.instrumentType}`;
+    }
+}
+
+export function transformTinkoffStreamCandle(candle: TinkoffStreamCandle): Candle {
+    return {
+        o: Helpers.toNumber(candle.open),
+        h: Helpers.toNumber(candle.high),
+        l: Helpers.toNumber(candle.low),
+        c: Helpers.toNumber(candle.close),
+        time: candle.time.getTime(),
+        v: candle.volume,
+    };
+}
+
+export function transformTimeFrameToSubscriptionsInterval(interval: TimeFrame): SubscriptionInterval {
+    switch (interval) {
+        case '1min':
+            return SubscriptionInterval.SUBSCRIPTION_INTERVAL_ONE_MINUTE;
+        case '5min':
+            return SubscriptionInterval.SUBSCRIPTION_INTERVAL_FIVE_MINUTES;
+    }
+
+    throw new DebutError(ErrorEnvironment.Transport, 'Unsupported SubscriptionInterval');
+}
+
+export function transformTinkoffStreamOrder(order: TinkoffStreamOrder): DepthOrder {
+    return {
+        price: Helpers.toNumber(order.price),
+        qty: order.quantity,
+    };
+}

@@ -125,7 +125,7 @@ export default {
     // runner: "jest-runner",
 
     // The paths to modules that run some code to configure or set up the testing environment before each test
-    // setupFiles: [],
+    setupFiles: ['dotenv/config'],
 
     // A list of paths to modules that run some code to configure or set up the testing framework before each test
     // setupFilesAfterEnv: [],
@@ -170,14 +170,11 @@ export default {
 
     // A map from regular expressions to paths to transformers
     transform: {
-        '.(ts|tsx)': 'ts-jest/preprocessor.js',
+        '.(ts|tsx)': 'ts-jest',
     },
 
     // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-    // transformIgnorePatterns: [
-    //   "/node_modules/",
-    //   "\\.pnp\\.[^\\/]+$"
-    // ],
+    transformIgnorePatterns: ['/node_modules/(?!tinkoff-invest-api/)', '\\.pnp\\.[^\\/]+$'],
 
     // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
     // unmockedModulePathPatterns: undefined,
