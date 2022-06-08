@@ -15,7 +15,7 @@ Debut is based on the architecture of the core and add-on plugins that allow fle
 <p>
     <img src="https://github.com/debut-js/Core/blob/master/.github/assets/alpaca.png" alt="Alpaca API" width="64">
     <img src="https://github.com/debut-js/Core/blob/master/.github/assets/binance.png" alt="Binance API" width="64">
-    <img src="https://github.com/debut-js/Core/blob/master/.github/assets/tinkoff.png" alt="Tinkoff API (Russia only)" width="64">
+    <img src="https://github.com/debut-js/Core/blob/master/.github/assets/tinkoffv2.png" alt="Tinkoff API (Russia only)" width="64">
     <a href="https://www.patreon.com/bePatron?u=57560983"><img src="https://github.com/debut-js/Core/blob/master/.github/assets/buy2.png" alt="Request implementation" width="64"></a>
 </p>
 
