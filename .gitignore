@@ -3,4 +3,4 @@ lib
 dist
 .idea
 /.vscode
-.env
+.tokens.json

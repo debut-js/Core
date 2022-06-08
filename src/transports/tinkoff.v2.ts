@@ -27,25 +27,37 @@ import { placeSandboxOrder } from './utils/utils';
 
 export class TinkoffTransport implements BaseTransport {
     protected api: TinkoffInvestApi;
-    private instruments: Map<string, Instrument> = new Map();
+    protected instruments: Map<string, Instrument> = new Map();
 
-    constructor(token: string) {
+    constructor(token: string, protected accountId: string) {
         if (!token) {
             throw new DebutError(ErrorEnvironment.Transport, 'token is incorrect');
+        }
+
+        if (!accountId) {
+            throw new DebutError(ErrorEnvironment.Transport, 'accountId is empty');
         }
 
         this.api = new TinkoffInvestApi({ token, appName: 'debut' });
     }
 
     public async getInstrument(opts: DebutOptions) {
-        const { ticker } = opts;
+        const { ticker, instrumentType } = opts;
+
+        if (instrumentType !== 'SPOT') {
+            throw new DebutError(
+                ErrorEnvironment.Transport,
+                `Only SPOT instrumentType supported, got ${instrumentType}`,
+            );
+        }
+
         const instrumentId = this.getInstrumentId(opts);
 
         if (this.instruments.has(instrumentId)) {
             return this.instruments.get(instrumentId);
         }
 
-        // todo: list exchanges?
+        // see: https://github.com/debut-js/Core/pull/20#discussion_r890240512
         const res = await this.findInstrumentByTicker(ticker, ['SPBXM', 'TQBR']);
 
         if (!res) {
@@ -60,7 +72,7 @@ export class TinkoffTransport implements BaseTransport {
             minNotional: 0,
             lotPrecision: 1, // Tinkoff support only integer lots format
             id: instrumentId,
-            type: 'SPOT', // Other types does not supported yet
+            type: instrumentType,
         };
 
         this.instruments.set(instrumentId, instrument);
@@ -84,7 +96,7 @@ export class TinkoffTransport implements BaseTransport {
                 type === OrderType.BUY ? OrderDirection.ORDER_DIRECTION_BUY : OrderDirection.ORDER_DIRECTION_SELL;
 
             const res = await this.api.orders.postOrder({
-                accountId: '', // todo: how to get account id here?
+                accountId: this.accountId,
                 figi,
                 quantity: lots,
                 direction,
@@ -128,8 +140,7 @@ export class TinkoffTransport implements BaseTransport {
             });
             this.api.stream.market.watch({ candles: [{ figi, interval }] });
             return () => {
-                // todo: dont remove figi instrument from cache?
-                this.instruments.delete(this.getInstrumentId(opts));
+                this.removeInstrumentFromCache(opts);
                 unsubscribe();
             };
         } catch (e) {
@@ -147,11 +158,11 @@ export class TinkoffTransport implements BaseTransport {
                     handler({ bids, asks });
                 }
             });
-            // todo: how to set depth?
-            this.api.stream.market.watch({ orderBook: [{ figi, depth: 1 }] });
+            // See: https://github.com/debut-js/Core/pull/20#discussion_r890268385
+            const MAX_DEPTH = 50;
+            this.api.stream.market.watch({ orderBook: [{ figi, depth: MAX_DEPTH }] });
             return () => {
-                // todo: dont remove figi instrument from cache?
-                this.instruments.delete(this.getInstrumentId(opts));
+                this.removeInstrumentFromCache(opts);
                 unsubscribe();
             };
         } catch (e) {
@@ -183,6 +194,10 @@ export class TinkoffTransport implements BaseTransport {
 
     private getInstrumentId(opts: DebutOptions) {
         return `${opts.ticker}:${opts.instrumentType}`;
+    }
+
+    private removeInstrumentFromCache(opts: DebutOptions) {
+        this.instruments.delete(this.getInstrumentId(opts));
     }
 }
 

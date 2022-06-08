@@ -1,7 +1,10 @@
+import { cli } from '@debut/plugin-utils';
 import { TinkoffTransport } from '../tinkoff.v2';
 
+const { tinkoff, tinkoffAccountId } = cli.getTokens();
+
 function createTransport() {
-    return new TinkoffTransportTest(process.env.TINKOFF_API_TOKEN);
+    return new TinkoffTransportTest(tinkoff, tinkoffAccountId);
 }
 
 class TinkoffTransportTest extends TinkoffTransport {
@@ -10,9 +13,9 @@ class TinkoffTransportTest extends TinkoffTransport {
     }
 }
 
-test('constructor: empty token', async () => {
-    const fn = () => new TinkoffTransport('');
-    expect(fn).toThrow('token is incorrect');
+test('constructor: empty token/accountId', async () => {
+    expect(() => new TinkoffTransport('', '123')).toThrow('token is incorrect');
+    expect(() => new TinkoffTransport('123', '')).toThrow('accountId is empty');
 });
 
 test('getInstrument', async () => {
@@ -23,11 +26,12 @@ test('getInstrument', async () => {
         currency: 'usd',
         interval: '5min',
         amount: 1,
+        instrumentType: 'SPOT',
     });
     expect(instrument).toEqual({
         figi: 'BBG002B04MT8',
         ticker: 'UBER',
-        id: 'UBER:undefined',
+        id: 'UBER:SPOT',
         lot: 1,
         lotPrecision: 1,
         minNotional: 0,
@@ -55,6 +59,7 @@ test('subscribeToTick', async () => {
                 currency: 'rub',
                 interval: '1min',
                 amount: 1,
+                instrumentType: 'SPOT',
             },
             resolve,
         );
@@ -79,6 +84,7 @@ test('subscribeOrderBook', async () => {
                 currency: 'rub',
                 interval: '1min',
                 amount: 1,
+                instrumentType: 'SPOT',
             },
             resolve,
         );
