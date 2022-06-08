@@ -1,8 +1,5 @@
 {
-    "name": "@debut/enterprise-core",
-    "publishConfig": {
-        "access": "restricted"
-    },
+    "name": "@debut/community-core",
     "version": "3.0.21",
     "description": "Javascript Multibroker Trading System",
     "main": "lib/index.js",

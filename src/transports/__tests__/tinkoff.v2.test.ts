@@ -1,5 +1,5 @@
 import { cli } from '@debut/plugin-utils';
-import { TinkoffTransport } from '../tinkoff.v2';
+import { TinkoffTransport } from '../tinkoff';
 
 const { tinkoff, tinkoffAccountId } = cli.getTokens();
 

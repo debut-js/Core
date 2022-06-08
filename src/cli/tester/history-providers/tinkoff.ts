@@ -2,7 +2,7 @@ import { cli, date } from '@debut/plugin-utils';
 import { TimeFrame } from '@debut/types';
 import { TinkoffInvestApi } from 'tinkoff-invest-api';
 import { CandleInterval } from 'tinkoff-invest-api/dist/generated/marketdata';
-import { findInstrumentByTicker, transformTinkoffCandle } from '../../../transports/tinkoff.v2';
+import { findInstrumentByTicker, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { DebutError, ErrorEnvironment } from '../../../modules/error';
 import { RequestFn } from '../history';
 
