@@ -1,10 +1,10 @@
-import { TinkoffInvestApi } from 'tinkoff-invest-api';
-import { InstrumentIdType } from 'tinkoff-invest-api/dist/generated/instruments';
-import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date } from '@debut/plugin-utils';
 import { TimeFrame } from '@debut/types';
+import { TinkoffInvestApi } from 'tinkoff-invest-api';
+import { CandleInterval } from 'tinkoff-invest-api/dist/generated/marketdata';
+import { findInstrumentByTicker, transformTinkoffCandle } from '../../../transports/tinkoff.v2';
+import { DebutError, ErrorEnvironment } from '../../../modules/error';
 import { RequestFn } from '../history';
-import { GetCandlesRequest } from 'tinkoff-invest-api/dist/generated/marketdata';
 
 const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
@@ -23,34 +23,44 @@ function getClient() {
 
 async function getFigi(ticker: string) {
     if (!figiCache?.has(ticker)) {
-        const { instrument } = await getClient().instruments.getInstrumentBy({
-            id: ticker,
-            classCode: 'SPBXM',
-            idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
-        });
-
-        figiCache.set(ticker, instrument.figi);
+        const { figi } = await findInstrumentByTicker(getClient(), ticker);
+        figiCache.set(ticker, figi);
     }
 
     return figiCache.get(ticker);
 }
 
-export const requestTinkoff: RequestFn = async (from: number, to: number, ticker: string, interval: TimeFrame) => {
+export const requestTinkoff: RequestFn = async (from, to, ticker, interval) => {
     const figi = await getFigi(ticker);
 
     // Skip weekend history
     if (date.isWeekend(from)) {
-        return Promise.resolve([]);
+        return [];
     }
 
-    const payload: GetCandlesRequest = {
+    const { candles } = await getClient().marketdata.getCandles({
         from: new Date(from),
         to: new Date(to),
         figi,
-        interval: convertTimeFrame(interval),
-    };
+        interval: transformTimeFrameToCandleInterval(interval),
+    });
 
-    return getClient()
-        .marketdata.getCandles(payload)
-        .then((data) => data.candles.map(transformTinkoffCandle));
+    return candles.map(transformTinkoffCandle);
 };
+
+function transformTimeFrameToCandleInterval(interval: TimeFrame): CandleInterval {
+    switch (interval) {
+        case '1min':
+            return CandleInterval.CANDLE_INTERVAL_1_MIN;
+        case '5min':
+            return CandleInterval.CANDLE_INTERVAL_5_MIN;
+        case '15min':
+            return CandleInterval.CANDLE_INTERVAL_15_MIN;
+        case '1h':
+            return CandleInterval.CANDLE_INTERVAL_HOUR;
+        case 'day':
+            return CandleInterval.CANDLE_INTERVAL_DAY;
+    }
+
+    throw new DebutError(ErrorEnvironment.History, `Unsupported interval: ${interval}`);
+}

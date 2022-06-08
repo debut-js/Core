@@ -17,6 +17,7 @@ import { TinkoffApiError } from 'tinkoff-invest-api/dist/api-error';
 import { InstrumentIdType } from 'tinkoff-invest-api/dist/generated/instruments';
 import {
     SubscriptionInterval,
+    HistoricCandle as TinkoffHistoricCandle,
     Candle as TinkoffStreamCandle,
     Order as TinkoffStreamOrder,
 } from 'tinkoff-invest-api/dist/generated/marketdata';
@@ -57,18 +58,13 @@ export class TinkoffTransport implements BaseTransport {
             return this.instruments.get(instrumentId);
         }
 
-        // see: https://github.com/debut-js/Core/pull/20#discussion_r890240512
-        const res = await this.findInstrumentByTicker(ticker, ['SPBXM', 'TQBR']);
-
-        if (!res) {
-            throw new DebutError(ErrorEnvironment.Transport, `Instrument not found: ${ticker}`);
-        }
+        const { figi, lot } = await findInstrumentByTicker(this.api, ticker);
 
         const instrument: Instrument = {
-            figi: res.instrument.figi,
-            ticker: res.instrument.ticker,
-            lot: res.instrument.lot,
-            minQuantity: res.instrument.lot,
+            figi,
+            ticker,
+            lot,
+            minQuantity: lot,
             minNotional: 0,
             lotPrecision: 1, // Tinkoff support only integer lots format
             id: instrumentId,
@@ -135,7 +131,7 @@ export class TinkoffTransport implements BaseTransport {
             const interval = transformTimeFrameToSubscriptionsInterval(opts.interval);
             const unsubscribe = this.api.stream.market.on('data', ({ candle }) => {
                 if (candle) {
-                    handler(transformTinkoffStreamCandle(candle));
+                    handler(transformTinkoffCandle(candle));
                 }
             });
             this.api.stream.market.watch({ candles: [{ figi, interval }] });
@@ -174,24 +170,6 @@ export class TinkoffTransport implements BaseTransport {
         return Math.round(lots) || 1;
     }
 
-    private async findInstrumentByTicker(ticker: string, classCodes: string[]) {
-        for (const classCode of classCodes) {
-            try {
-                return await this.api.instruments.getInstrumentBy({
-                    id: ticker,
-                    classCode,
-                    idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
-                });
-            } catch (e) {
-                if (e instanceof TinkoffApiError && e.code === Status.NOT_FOUND) {
-                    continue;
-                } else {
-                    throw e;
-                }
-            }
-        }
-    }
-
     private getInstrumentId(opts: DebutOptions) {
         return `${opts.ticker}:${opts.instrumentType}`;
     }
@@ -201,7 +179,33 @@ export class TinkoffTransport implements BaseTransport {
     }
 }
 
-export function transformTinkoffStreamCandle(candle: TinkoffStreamCandle): Candle {
+/**
+ * Returns instrument info by ticker.
+ * See: https://github.com/debut-js/Core/pull/20#discussion_r890240512
+ */
+export async function findInstrumentByTicker(api: TinkoffInvestApi, ticker: string) {
+    const classCodes = ['SPBXM', 'TQBR'];
+    for (const classCode of classCodes) {
+        try {
+            const { instrument } = await api.instruments.getInstrumentBy({
+                id: ticker,
+                classCode,
+                idType: InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER,
+            });
+            return instrument;
+        } catch (e) {
+            if (e instanceof TinkoffApiError && e.code === Status.NOT_FOUND) {
+                continue;
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    throw new DebutError(ErrorEnvironment.Transport, `Instrument not found: ${ticker}`);
+}
+
+export function transformTinkoffCandle(candle: TinkoffStreamCandle | TinkoffHistoricCandle): Candle {
     return {
         o: Helpers.toNumber(candle.open),
         h: Helpers.toNumber(candle.high),
@@ -212,7 +216,7 @@ export function transformTinkoffStreamCandle(candle: TinkoffStreamCandle): Candl
     };
 }
 
-export function transformTimeFrameToSubscriptionsInterval(interval: TimeFrame): SubscriptionInterval {
+function transformTimeFrameToSubscriptionsInterval(interval: TimeFrame): SubscriptionInterval {
     switch (interval) {
         case '1min':
             return SubscriptionInterval.SUBSCRIPTION_INTERVAL_ONE_MINUTE;
@@ -223,7 +227,7 @@ export function transformTimeFrameToSubscriptionsInterval(interval: TimeFrame): 
     throw new DebutError(ErrorEnvironment.Transport, 'Unsupported SubscriptionInterval');
 }
 
-export function transformTinkoffStreamOrder(order: TinkoffStreamOrder): DepthOrder {
+function transformTinkoffStreamOrder(order: TinkoffStreamOrder): DepthOrder {
     return {
         price: Helpers.toNumber(order.price),
         qty: order.quantity,
