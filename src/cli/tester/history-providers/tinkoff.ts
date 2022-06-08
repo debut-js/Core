@@ -1,21 +1,21 @@
-import OpenAPI from '@tinkoff/invest-openapi-js-sdk';
-import { convertTimeFrame, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { cli, date } from '@debut/plugin-utils';
 import { TimeFrame } from '@debut/types';
+import { TinkoffInvestApi } from 'tinkoff-invest-api';
+import { CandleInterval } from 'tinkoff-invest-api/dist/generated/marketdata';
+import { findInstrumentByTicker, transformTinkoffCandle } from '../../../transports/tinkoff.v2';
+import { DebutError, ErrorEnvironment } from '../../../modules/error';
 import { RequestFn } from '../history';
 
 const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
-const apiURL = 'https://api-invest.tinkoff.ru/openapi';
-const socketURL = 'wss://api-invest.tinkoff.ru/openapi/md/v1/md-openapi/ws';
 
-let client: OpenAPI = null;
+let client: TinkoffInvestApi = null;
 let figiCache: Map<string, string> = null;
 
 function getClient() {
     if (!client) {
         figiCache = new Map();
-        client = new OpenAPI({ apiURL, secretToken: token, socketURL });
+        client = new TinkoffInvestApi({ token });
     }
 
     return client;
@@ -23,32 +23,44 @@ function getClient() {
 
 async function getFigi(ticker: string) {
     if (!figiCache?.has(ticker)) {
-        const { figi } = await getClient().searchOne({ ticker });
+        const { figi } = await findInstrumentByTicker(getClient(), ticker);
         figiCache.set(ticker, figi);
     }
 
     return figiCache.get(ticker);
 }
 
-export const requestTinkoff: RequestFn = async (from: number, to: number, ticker: string, interval: TimeFrame) => {
+export const requestTinkoff: RequestFn = async (from, to, ticker, interval) => {
     const figi = await getFigi(ticker);
 
     // Skip weekend history
     if (date.isWeekend(from)) {
-        return Promise.resolve([]);
+        return [];
     }
 
-    const payload = {
-        from: date.toIsoString(from),
-        to: date.toIsoString(to),
+    const { candles } = await getClient().marketdata.getCandles({
+        from: new Date(from),
+        to: new Date(to),
         figi,
-        interval: convertTimeFrame(interval),
-    };
-    const candles = await getClient()
-        .candlesGet(payload)
-        .then((data) => data.candles);
+        interval: transformTimeFrameToCandleInterval(interval),
+    });
 
-    const result = candles.map(transformTinkoffCandle);
-
-    return result;
+    return candles.map(transformTinkoffCandle);
 };
+
+function transformTimeFrameToCandleInterval(interval: TimeFrame): CandleInterval {
+    switch (interval) {
+        case '1min':
+            return CandleInterval.CANDLE_INTERVAL_1_MIN;
+        case '5min':
+            return CandleInterval.CANDLE_INTERVAL_5_MIN;
+        case '15min':
+            return CandleInterval.CANDLE_INTERVAL_15_MIN;
+        case '1h':
+            return CandleInterval.CANDLE_INTERVAL_HOUR;
+        case 'day':
+            return CandleInterval.CANDLE_INTERVAL_DAY;
+    }
+
+    throw new DebutError(ErrorEnvironment.History, `Unsupported interval: ${interval}`);
+}
