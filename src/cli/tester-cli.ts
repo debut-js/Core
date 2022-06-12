@@ -16,16 +16,13 @@ const args = cli.getArgs<Params>();
 const { bot, ticker, days = 1000, ohlc, gap = 0 } = args;
 let schema: cli.BotData | null;
 
-try {
-    schema = cli.getBotData(bot);
-} catch (e) {
-    throw new DebutError(
-        ErrorEnvironment.Tester,
-        `Strategy "${bot}"" is not configured correctly, please add this to schema.json`,
-    );
-}
-
 (async function () {
+    try {
+        schema = await cli.getBotData(bot);
+    } catch (e) {
+        throw new DebutError(ErrorEnvironment.Tester, `${e}`);
+    }
+
     if (!schema) {
         process.stdout.write('Genetic CLI error: Incorrect configuration');
         return;

@@ -11,7 +11,7 @@ const tsConfig = {
 const debut = {
     input: 'src/index.ts',
     output: {
-        file: pkg.main,
+        file: pkg.exports,
         format: 'cjs', // the preferred format
     },
     external: [...Object.keys(pkg.dependencies || {}), 'path', 'fs'],

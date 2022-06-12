@@ -1,10 +1,10 @@
 import { cli, date } from '@debut/plugin-utils';
 import { TimeFrame } from '@debut/types';
 import { TinkoffInvestApi } from 'tinkoff-invest-api';
-import { CandleInterval } from 'tinkoff-invest-api/dist/generated/marketdata';
 import { findInstrumentByTicker, transformTinkoffCandle } from '../../../transports/tinkoff';
 import { DebutError, ErrorEnvironment } from '../../../modules/error';
 import { RequestFn } from '../history';
+import { CandleInterval } from 'tinkoff-invest-api/cjs/generated/marketdata';
 
 const tokens = cli.getTokens();
 const token: string = tokens['tinkoff'];
@@ -15,7 +15,7 @@ let figiCache: Map<string, string> = null;
 function getClient() {
     if (!client) {
         figiCache = new Map();
-        client = new TinkoffInvestApi({ token });
+        client = new TinkoffInvestApi({ token, appName: 'debut' });
     }
 
     return client;

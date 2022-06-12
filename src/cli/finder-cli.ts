@@ -1,5 +1,6 @@
 import { cli, file } from '@debut/plugin-utils';
 import { GenticWrapperOptions } from '@debut/types';
+import { DebutError, ErrorEnvironment } from '../modules/error';
 import { GeneticWrapper } from './tester/genetic';
 
 type Params = {
@@ -17,11 +18,16 @@ type Params = {
 };
 
 const args = cli.getArgs<Params>();
-
 const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, crypt, walkFwd } = args;
-const schema: cli.BotData | null = cli.getBotData(bot);
+let schema: cli.BotData | null;
 
 (async function () {
+    try {
+        schema = await cli.getBotData(bot);
+    } catch (e) {
+        throw new DebutError(ErrorEnvironment.Tester, `${e}`);
+    }
+
     if (!schema) {
         process.stdout.write('Genetic CLI error: Incorrect configuration');
         return;

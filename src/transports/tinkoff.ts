@@ -13,15 +13,15 @@ import {
     TimeFrame,
 } from '@debut/types';
 import { TinkoffInvestApi, Helpers } from 'tinkoff-invest-api';
-import { TinkoffApiError } from 'tinkoff-invest-api/dist/api-error';
-import { InstrumentIdType } from 'tinkoff-invest-api/dist/generated/instruments';
+import { TinkoffApiError } from 'tinkoff-invest-api/cjs/api-error.js';
+import { InstrumentIdType } from 'tinkoff-invest-api/cjs/generated/instruments.js';
 import {
     SubscriptionInterval,
     HistoricCandle as TinkoffHistoricCandle,
     Candle as TinkoffStreamCandle,
     Order as TinkoffStreamOrder,
-} from 'tinkoff-invest-api/dist/generated/marketdata';
-import { OrderDirection, OrderType as TinkoffOrderType } from 'tinkoff-invest-api/dist/generated/orders';
+} from 'tinkoff-invest-api/cjs/generated/marketdata.js';
+import { OrderDirection, OrderType as TinkoffOrderType } from 'tinkoff-invest-api/cjs/generated/orders.js';
 import { Status } from 'nice-grpc';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
