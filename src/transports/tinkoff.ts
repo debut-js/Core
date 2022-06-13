@@ -27,7 +27,7 @@ import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
 
 export class TinkoffTransport implements BaseTransport {
-    protected api: TinkoffInvestApi;
+    public api: TinkoffInvestApi;
     protected instruments: Map<string, Instrument> = new Map();
 
     constructor(token: string, protected accountId: string) {
