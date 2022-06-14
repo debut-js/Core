@@ -168,10 +168,10 @@ export abstract class Debut implements DebutCore {
         }
 
         const { amount, lotsMultiplier, sandbox, equityLevel } = this.opts;
-        const { lot: lotSize, id } = this.instrument;
-        const lotPrice = price * lotSize;
+        const { lot, id } = this.instrument;
+        const lotPrice = price * lot;
         const lots = this.transport.prepareLots(((amount * equityLevel) / lotPrice) * lotsMultiplier, id);
-        const pendingOrder = this.createPending(operation, lots, { learning: this.learning, sandbox });
+        const pendingOrder = this.createPending(operation, { lots, learning: this.learning, sandbox });
         const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeOpen, pendingOrder);
 
         if (skip) {
@@ -205,11 +205,6 @@ export abstract class Debut implements DebutCore {
      * Close selected order
      */
     public async closeOrder(closing: ExecutedOrder | PendingOrder) {
-        // Order not executed yet, remove immediatly
-        if (!('orderId' in closing)) {
-            return this.removeOrder(closing);
-        }
-
         const pendingOrder = this.createClosePending(closing);
         const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeClose, pendingOrder, closing);
 
@@ -218,9 +213,10 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        try {
-            this.removeOrder(closing);
+        // Optimistic remove order from list
+        this.removeOrder(closing);
 
+        if (closing.orderId) {
             let order: ExecutedOrder;
 
             if (this.transaction && this.transaction.canAppendOrder(pendingOrder)) {
@@ -233,16 +229,35 @@ export abstract class Debut implements DebutCore {
             await this.onOrderClosed(order, closing);
 
             return order;
-        } catch (e) {
-            console.warn(new DebutError(ErrorEnvironment.Core, `${new Date().toISOString()} Order not closed, ${e}`));
-
-            const idx = this.orders.indexOf(closing);
-
-            // Restore order in list
-            if (idx === -1) {
-                this.orders.unshift(closing);
-            }
         }
+    }
+
+    /**
+     * Partial close selected order, pass second argument reduce, this is how many percent are closed
+     * reduce = 0.25 mean 25% of order will be closed
+     */
+    public async reduceOrder(closing: ExecutedOrder, reduce: number) {
+        const reducedLots = this.transport.prepareLots(closing.lots * reduce);
+        const remainingLots = this.transport.prepareLots(closing.lots - reducedLots);
+        const pendingOrder = this.createClosePending(closing, { lots: reducedLots, reduce });
+        const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeClose, pendingOrder, closing);
+
+        // Skip opening because action prevented from plugins
+        if (skip) {
+            return;
+        }
+
+        this.updateOrder(closing, 'lots', remainingLots);
+
+        let order: ExecutedOrder;
+
+        // TODO: Should support transaction here?
+        order = await this.transport.placeOrder(pendingOrder, this.opts);
+
+        await this.pluginDriver.asyncReduce(PluginHook.onClose, order, closing);
+        await this.onOrderClosed(order, closing);
+
+        return order;
     }
 
     /**
@@ -341,30 +356,31 @@ export abstract class Debut implements DebutCore {
         return false;
     }
 
-    private createPending(type: OrderType, lots: number, details?: Partial<PendingOrder>): PendingOrder {
+    private createPending(type: OrderType, details: Partial<PendingOrder> = null): PendingOrder {
         const { c: price, time } = this.marketTick;
 
         return {
-            ...details,
             cid: ~~(Math.random() * 1e5),
             type,
             author: this.getName(),
             price,
-            lots,
             time,
+            ...details,
         };
     }
 
-    private createClosePending(closing: ExecutedOrder) {
+    private createClosePending(closing: ExecutedOrder, details: Partial<PendingOrder> = null) {
         const pendingDetails: Partial<PendingOrder> = {
+            lots: closing.lots,
             openPrice: closing.price,
             openId: closing.orderId,
             sandbox: closing.sandbox,
             learning: closing.learning,
             close: true,
+            ...details,
         };
 
-        return this.createPending(orders.inverseType(closing.type), closing.lots, pendingDetails);
+        return this.createPending(orders.inverseType(closing.type), pendingDetails);
     }
 
     /**
@@ -379,6 +395,22 @@ export abstract class Debut implements DebutCore {
         }
 
         return void 0;
+    }
+
+    /**
+     * Update existing order attributes
+     */
+    private updateOrder(order: PendingOrder | ExecutedOrder, key: keyof ExecutedOrder, value: unknown): void {
+        const target = this.orders.find((item) => item.cid === order.cid);
+
+        if (!target) {
+            throw new DebutError(ErrorEnvironment.Core, `Order with id: ${order.id || order.cid} not found`);
+        }
+
+        // TODO: How to notify plugins?
+        // OnOrderUpdated hook
+
+        target[key] = value;
     }
 
     /**
