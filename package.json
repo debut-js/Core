@@ -1,6 +1,6 @@
 {
     "name": "@debut/community-core",
-    "version": "3.0.22",
+    "version": "3.1.0",
     "description": "Javascript Multibroker Trading System",
     "exports": "./lib/index.js",
     "types": "lib/index.d.ts",
