@@ -36,7 +36,7 @@ export class GeneticWrapper {
             crossoverFunction: this.crossover, // previously described to produce child solution by combining two parents
             populationSize: 100,
             select1: Select.FittestLinear,
-            select2: Select.Tournament3,
+            select2: Select.RandomLinearRank,
             fittestNSurvives: 2,
             mutateProbablity: 0.3,
             crossoverProbablity: 0.6,
@@ -268,7 +268,7 @@ export class GeneticWrapper {
      * @param type - kind of optimisation, rolling or anchored
      */
     private async wfoGenetic(ticks: Candle[], type: GeneticWFOType) {
-        const forwardSegments: Array<Candle[][]> = crateForwardGaps(ticks, 12, type);
+        const forwardSegments: Array<Candle[][]> = crateWFOSegmentation(ticks, 10, type);
         await this.genetic.seed();
 
         for (let k = 0; k < forwardSegments.length; k++) {
@@ -333,25 +333,27 @@ function getRandomByRange(range: SchemaDescriptor) {
 /**
  * Slice backtesting history to different segments, for testing and validation
  */
-export function crateForwardGaps(ticks: Candle[], segments = 4, type: GeneticWFOType) {
-    const totalSize = ticks.length;
-    const fwdSize = Math.round(totalSize / segments / 2);
-    const intervalSize = Math.round(totalSize / segments);
-    const pairs: Array<Candle[][]> = [];
+export function crateWFOSegmentation(ticks: Candle[], count: number, type: GeneticWFOType) {
+    const segmentSize = Math.round(ticks.length / (count - 1));
+    const forwardSize = Math.round(segmentSize / 2);
 
     let startPos = 0;
-    let endPos = intervalSize;
+    let endPos = segmentSize;
+    const pairs = [];
 
-    for (let i = 0; i <= segments; i++) {
-        const pair = [ticks.slice(startPos, endPos - fwdSize), ticks.slice(endPos - fwdSize, endPos)];
+    while (endPos < ticks.length) {
+        const backtest = ticks.slice(startPos, endPos);
+        const forward = ticks.slice(endPos, endPos + forwardSize);
+
+        endPos += forwardSize;
 
         if (type === GeneticWFOType.Rolling) {
-            startPos += fwdSize;
+            startPos += forwardSize;
         }
 
-        endPos += fwdSize;
-
-        pairs.push(pair);
+        if (backtest.length && forward.length) {
+            pairs.push([backtest, forward]);
+        }
     }
 
     return pairs;
