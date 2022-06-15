@@ -6,24 +6,24 @@ import {
     WorkingEnv,
     SchemaDescriptor,
     DebutCore,
+    GeneticWFOType,
 } from '@debut/types';
-import { Genetic, GeneticOptions, Phenotype, Select } from 'async-genetic';
+import { Genetic, GeneticOptions, Select } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
 import { Candle } from '@debut/types';
 
+/**
+ * Genetic allorithms class, it's wrapper for Debut strategies optimize
+ */
 export class GeneticWrapper {
     private genetic: Genetic<DebutCore>;
     private transport: TesterTransport;
     private internalOptions: GeneticOptions<DebutCore>;
     private schema: GeneticSchema;
     private schemaKeys: string[];
-    private configLookup: Map<string, unknown> = new Map();
     private deduplicateLookup = new Set<string>();
-    private scoreLookup: Map<string, number> = new Map();
-    private lastIteration = false;
     private baseOpts: DebutOptions;
-    private forwardSegments: Array<Candle[][]> = [];
 
     constructor(private options: GenticWrapperOptions) {
         this.internalOptions = {
@@ -34,7 +34,7 @@ export class GeneticWrapper {
             populationSize: 100,
             select1: Select.FittestLinear,
             select2: Select.Tournament3,
-            fittestNSurvives: 1,
+            fittestNSurvives: 2,
             mutateProbablity: 0.3,
             crossoverProbablity: 0.6,
             deduplicate: this.deduplicate,
@@ -51,125 +51,70 @@ export class GeneticWrapper {
         }
     }
 
+    /**
+     * Start genetic optimization cycle
+     * @param schema - optimization schema for current strategy
+     * @param opts - base strategy options for initialize
+     * @returns - best N (by default 30) variants of configuration for current strategy
+     */
     async start(schema: GeneticSchema, opts: DebutOptions) {
-        try {
-            this.schema = schema;
-            this.schemaKeys = Object.keys(schema);
-            this.configLookup = new Map();
-            this.baseOpts = opts;
-            this.transport = new TesterTransport({
-                ohlc: this.options.ohlc,
-                broker: opts.broker,
-                ticker: opts.ticker,
-            });
+        this.schema = schema;
+        this.schemaKeys = Object.keys(schema);
+        this.baseOpts = opts;
+        this.transport = new TesterTransport({
+            ohlc: this.options.ohlc,
+            broker: opts.broker,
+            ticker: opts.ticker,
+        });
 
-            const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
-            const { days, gapDays } = this.options;
+        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
+        const { days, gapDays } = this.options;
 
-            let ticks = await getHistory({
-                broker,
-                ticker,
-                interval,
-                days,
-                gapDays,
-                instrumentType,
-            });
+        let ticks = await getHistory({
+            broker,
+            ticker,
+            interval,
+            days,
+            gapDays,
+            instrumentType,
+        });
 
-            if (this.options.ticksFilter) {
-                ticks = ticks.filter(this.options.ticksFilter(opts));
-            }
-
-            if (this.options.log) {
-                console.log(`\n----- Genetic Start with ${ticks.length} candles ----- \n`);
-            }
-
-            const segments = this.options.walkFwd ? 4 : 1;
-            const walkTestSize = this.options.walkFwd ? 0.25 : 0;
-
-            this.forwardSegments = crateForwardGaps(ticks, segments, walkTestSize);
-            await this.genetic.seed();
-
-            for (let k = 0; k < this.forwardSegments.length; k++) {
-                const [backtest, walkTest] = this.forwardSegments[k];
-                console.log(
-                    `Candles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
-                );
-
-                for (let i = 0; i < this.options.generations; i++) {
-                    this.transport.setTicks(backtest);
-
-                    await this.subscribePopulation();
-
-                    this.lastIteration = i === this.options.generations - 1;
-
-                    const now = Date.now();
-
-                    if (this.options.log) {
-                        console.log('Generation: ', i);
-                    }
-
-                    await this.transport.run();
-                    await this.genetic.estimate();
-
-                    if (this.options.log) {
-                        console.log('Generation time: ', (Date.now() - now) / 1000, 's');
-                        console.log('Stats: ', this.genetic.stats);
-                    }
-
-                    if (walkTest?.length > 0 && this.options.walkFwd === 'aggressive') {
-                        const prevLookup = new Map(this.scoreLookup);
-                        const prevStats = new Map(this.configLookup);
-
-                        this.scoreLookup.clear();
-                        this.configLookup.clear();
-
-                        await this.walkForwardOptimize(walkTest);
-
-                        this.scoreLookup = prevLookup;
-                        this.configLookup = prevStats;
-                    }
-
-                    await this.disposePopulation();
-
-                    // Если это последняя итерация дальше скрещивать не нужно
-                    if (!this.lastIteration) {
-                        this.transport.reset();
-                        await this.genetic.breed();
-                    }
-
-                    this.deduplicateLookup.clear();
-                }
-
-                if (walkTest?.length > 0 && this.options.walkFwd === 'conservative') {
-                    this.scoreLookup.clear();
-                    await this.subscribePopulation();
-                    await this.walkForwardOptimize(walkTest);
-                    await this.disposePopulation();
-                }
-            }
-
-            return this.genetic
-                .best(this.options.best || 30)
-                .reverse()
-                .map((bot) => ({ config: bot.opts, stats: this.configLookup.get(bot.id) }));
-        } catch (e) {
-            console.log(e);
-
-            return [];
+        if (this.options.ticksFilter) {
+            ticks = ticks.filter(this.options.ticksFilter(opts));
         }
+
+        console.log('Optimisations:', this.options.wfo ? `Wakl-Forward` : 'None');
+        console.log(`\nGenetic Start with ${ticks.length} candles\n`);
+
+        if (this.options.wfo) {
+            await this.wfoGenetic(ticks, this.options.wfo);
+        } else {
+            await this.pureGenetic(ticks);
+        }
+
+        return this.genetic
+            .best(this.options.best || 30)
+            .reverse()
+            .map((ph) => ({ config: ph.entity.opts, stats: ph.state }));
     }
 
+    /**
+     * Subscribe all strategies to transport for next transport ticks listening
+     */
     private async subscribePopulation() {
         for (let i = 0; i < this.genetic.population.length; i++) {
             const pair = this.genetic.population[i];
 
-            if (!this.scoreLookup.has(pair.entity.id)) {
-                await pair.entity.start();
-            }
+            await pair.entity.start();
         }
     }
 
+    /**
+     * Destroy strategy listeners in transport, off tick listeners and call destructor in strategy (dispose method)
+     */
     private async disposePopulation() {
+        this.transport.reset();
+
         for (let i = 0; i < this.genetic.population.length; i++) {
             const pair = this.genetic.population[i];
 
@@ -177,6 +122,9 @@ export class GeneticWrapper {
         }
     }
 
+    /**
+     * Get random generated config for strategy
+     */
     private getRandomSolution = async () => {
         const config = { ...this.baseOpts };
 
@@ -191,43 +139,44 @@ export class GeneticWrapper {
         return this.getRandomSolution();
     };
 
+    /**
+     * Estimate strategy, more fitness score mean strategy is good, less mean strategy bad
+     */
     private fitness = async (bot: DebutCore) => {
-        const hash = bot.id;
-        let storedScore = this.scoreLookup.get(hash);
+        const stats = this.options.stats(bot);
+        const score = this.options.score(bot);
 
-        if (!storedScore) {
-            const stats = this.options.stats(bot);
-            const score = this.options.score(bot);
-
-            storedScore = score;
-
-            this.scoreLookup.set(hash, storedScore);
-            this.configLookup.set(hash, stats);
-        }
-
-        return storedScore;
+        return { state: stats, fitness: score };
     };
 
-    private mutate = async (bot: DebutCore) => {
+    /**
+     * Mutate configurations (self reproducing with mutations or not, depends on mutation probability)
+     */
+    private mutate = async (bot: DebutCore, i: number = 0) => {
         const config = { ...bot.opts };
 
-        if (Math.random() < 0.3) {
-            this.schemaKeys.forEach((key) => {
-                if (key in this.schema) {
-                    config[key] = getRandomByRange(this.schema[key]);
-                }
-            });
-        }
+        this.schemaKeys.forEach((key) => {
+            if (key in this.schema) {
+                config[key] = getRandomByRange(this.schema[key]);
+            }
+        });
 
-        if (this.options.validateSchema(config)) {
+        // Prevent recursion calls for validation
+        if (i >= 10 || this.options.validateSchema(config)) {
             return this.createBot(config);
         }
 
-        return this.mutate(bot);
+        return this.mutate(bot, ++i);
     };
 
-    private crossover = async (mother: DebutCore, father: DebutCore, i = 0) => {
-        // two-point crossover
+    /**
+     * Crossover for two selected cofigurations of strategies
+     * @param mother - first selected strategy
+     * @param father - second selectedd strategy
+     * @param i - deep recursion calls counter
+     * @returns return two new strategy configuration as childs of current parents
+     */
+    private crossover = async (mother: DebutCore, father: DebutCore, i: number = 0) => {
         const sonConfig: DebutOptions = { ...father.opts };
         const daughterConfig: DebutOptions = { ...mother.opts };
 
@@ -239,6 +188,7 @@ export class GeneticWrapper {
             daughterConfig[key] = source2[key];
         });
 
+        // Infinite recursion preventing and validation checks
         if (i >= 10 || (this.options.validateSchema(sonConfig) && this.options.validateSchema(daughterConfig))) {
             return [await this.createBot(sonConfig), await this.createBot(daughterConfig)];
         }
@@ -246,6 +196,11 @@ export class GeneticWrapper {
         return this.crossover(mother, father, ++i);
     };
 
+    /**
+     * Create duplications hashmap for remove same configurations from populations
+     * @param bot - strategy
+     * @returns true when unique false when duplicate and removed
+     */
     private deduplicate = (bot: DebutCore) => {
         const hash = bot.id;
 
@@ -259,6 +214,11 @@ export class GeneticWrapper {
         return true;
     };
 
+    /**
+     * Create strategy from options and assign strategy id based on options hash funtion
+     * @param config - strategy options
+     * @returns strategy
+     */
     private async createBot(config: DebutOptions) {
         const hash = JSON.stringify(config, Object.keys(config).sort());
         const bot = await this.options.create(this.transport, config, WorkingEnv.genetic);
@@ -268,38 +228,90 @@ export class GeneticWrapper {
     }
 
     /**
-     * Walk forward optimization for genetical algorithms
+     * Classig genetical algorithm
+     * @param ticks - candles for backtesting
+     * @param breedLast - should breed last generation
      */
-    private async walkForwardOptimize(walkTest: Candle[]) {
-        console.log('Walk forward test started');
+    private async pureGenetic(ticks: Candle[], breedLast?: boolean) {
+        await this.genetic.seed();
 
-        const population: Phenotype<DebutCore>[] = [];
+        for (let i = 0; i < this.options.generations; i++) {
+            const lastGeneration = i === this.options.generations - 1;
+
+            this.transport.setTicks(ticks);
+
+            const now = Date.now();
+
+            console.log('Generation: ', i);
+
+            await this.subscribePopulation();
+            await this.transport.run();
+            await this.disposePopulation();
+            await this.genetic.estimate();
+
+            console.log('Generation time: ', (Date.now() - now) / 1000, 's');
+            console.log('Stats: ', this.genetic.stats);
+
+            if (!lastGeneration || breedLast) {
+                await this.genetic.breed();
+            }
+        }
+    }
+
+    /**
+     * Walk Forward optimisation around classic genetic algorithm
+     * @param ticks - total ticks for generate backtesting and forward testing sequences
+     * @param type - kind of optimisation, rolling or anchored
+     */
+    private async wfoGenetic(ticks: Candle[], type: GeneticWFOType) {
+        const forwardSegments: Array<Candle[][]> = crateForwardGaps(ticks, 12, type);
+        await this.genetic.seed();
+
+        for (let k = 0; k < forwardSegments.length; k++) {
+            const [backtest, walkTest] = forwardSegments[k];
+            const lastSegment = k === forwardSegments.length - 1;
+
+            this.deduplicateLookup.clear();
+
+            console.log(
+                `Candles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
+            );
+
+            // Breed last generation as well
+            await this.pureGenetic(backtest, true);
+            await this.subscribePopulation();
+
+            // At last segment estimate all entities at full time and generate report
+            if (lastSegment) {
+                console.log('Walk forward final estimation started');
+                await this.test(ticks);
+            } else {
+                console.log('Walk forward test started');
+                await this.test(walkTest);
+                await this.genetic.breed();
+            }
+        }
+    }
+
+    /**
+     * Test population in custom period
+     */
+    private async test(walkTest: Candle[]) {
+        await this.subscribePopulation();
+
         this.transport.setTicks(walkTest);
 
         await this.transport.run();
+        await this.disposePopulation();
         await this.genetic.estimate();
-
-        for (let i = 0; i < this.genetic.population.length; i++) {
-            const item = this.genetic.population[i];
-            const score = this.scoreLookup.get(item.entity.id);
-            const stats = this.configLookup.get(item.entity.id);
-            const isValid = this.options.validateForwardStats(stats);
-
-            if (score && score > 0 && isValid) {
-                population.push(item);
-            } else {
-                await item.entity.dispose();
-            }
-        }
-
-        this.genetic.population = population;
-
-        console.log('Population after walk forward test:', this.genetic.population.length);
-
-        this.transport.reset();
     }
 }
 
+/**
+ * Generates a random value by description of it
+ * @param range - range description
+ * @returns random value
+ */
 function getRandomByRange(range: SchemaDescriptor) {
     let randomValue: number | boolean;
 
@@ -313,22 +325,26 @@ function getRandomByRange(range: SchemaDescriptor) {
 
     return randomValue;
 }
+
 /**
- * @experimental Function for cross validating with formward testing on history
+ * Slice backtesting history to different segments, for testing and validation
  */
-function crateForwardGaps(ticks: Candle[], segments = 4, fwd = 0.25) {
+export function crateForwardGaps(ticks: Candle[], segments = 4, type: GeneticWFOType) {
     const totalSize = ticks.length;
-    const fwdSize = Math.round((totalSize / segments) * fwd);
+    const fwdSize = Math.round(totalSize / segments / 2);
     const intervalSize = Math.round(totalSize / segments);
     const pairs: Array<Candle[][]> = [];
 
     let startPos = 0;
     let endPos = intervalSize;
 
-    for (let i = 0; i < segments; i++) {
+    for (let i = 0; i <= segments; i++) {
         const pair = [ticks.slice(startPos, endPos - fwdSize), ticks.slice(endPos - fwdSize, endPos)];
 
-        startPos += fwdSize;
+        if (type === GeneticWFOType.Rolling) {
+            startPos += fwdSize;
+        }
+
         endPos += fwdSize;
 
         pairs.push(pair);
