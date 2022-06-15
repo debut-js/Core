@@ -13,6 +13,9 @@ import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
 import { Candle } from '@debut/types';
 
+// MRI - Max Recursion Iterations
+const MRI = 10;
+
 /**
  * Genetic allorithms class, it's wrapper for Debut strategies optimize
  */
@@ -125,14 +128,15 @@ export class GeneticWrapper {
     /**
      * Get random generated config for strategy
      */
-    private getRandomSolution = async () => {
+    private getRandomSolution = async (i: number = 0) => {
         const config = { ...this.baseOpts };
 
         this.schemaKeys.forEach((key) => {
             config[key] = getRandomByRange(this.schema[key]);
         });
 
-        if (this.options.validateSchema(config)) {
+        // Prevent recursion infinite loop and check validity
+        if (i >= MRI || this.options.validateSchema(config)) {
             return this.createBot(config);
         }
 
@@ -162,7 +166,7 @@ export class GeneticWrapper {
         });
 
         // Prevent recursion calls for validation
-        if (i >= 10 || this.options.validateSchema(config)) {
+        if (i >= MRI || this.options.validateSchema(config)) {
             return this.createBot(config);
         }
 
@@ -189,7 +193,7 @@ export class GeneticWrapper {
         });
 
         // Infinite recursion preventing and validation checks
-        if (i >= 10 || (this.options.validateSchema(sonConfig) && this.options.validateSchema(daughterConfig))) {
+        if (i >= MRI || (this.options.validateSchema(sonConfig) && this.options.validateSchema(daughterConfig))) {
             return [await this.createBot(sonConfig), await this.createBot(daughterConfig)];
         }
 
