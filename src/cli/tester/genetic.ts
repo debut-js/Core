@@ -52,7 +52,7 @@ export class GeneticWrapper {
         };
 
         const ilandOptions: IslandGeneticModelOptions<DebutCore> = {
-            islandCount: 8,
+            islandCount: options.populationSize * 0.01,
             islandMutationProbability: 0.8,
             islandCrossoverProbability: 0.8,
             migrationProbability: 0.1,
@@ -267,18 +267,15 @@ export class GeneticWrapper {
      * @param breedLast - should breed last generation
      */
     private async pureGenetic(ticks: Candle[], breedLast?: boolean) {
-        await this.genetic.seed();
-
+        const { generations, gaContinent } = this.options;
         let continentalGenerationsLeft = 0;
 
-        for (let i = 0; i < this.options.generations; i++) {
-            const lastGeneration = i === this.options.generations - 1;
+        await this.genetic.seed();
+
+        for (let i = 0; i < generations; i++) {
+            const lastGeneration = i === generations - 1;
             const now = Date.now();
-            const postfix = this.options.gaContinent
-                ? continentalGenerationsLeft !== 0
-                    ? '(Continent)'
-                    : '(Ilands)'
-                : '';
+            const postfix = gaContinent ? (continentalGenerationsLeft !== 0 ? '(Continent)' : '(Ilands)') : '';
 
             this.transport.setTicks(ticks);
 
@@ -289,36 +286,35 @@ export class GeneticWrapper {
             await this.disposePopulation();
 
             // Each 10 generation next 5 generations would be on continent
-            if (i !== 0 && i % 20 === 0) {
+            if (i !== 0 && i % 2 === 0 && this.genetic instanceof IslandGeneticModel) {
                 continentalGenerationsLeft = 5;
-            }
-
-            if (
-                this.options.gaContinent &&
-                continentalGenerationsLeft !== 0 &&
-                this.genetic instanceof IslandGeneticModel
-            ) {
-                continentalGenerationsLeft--;
                 // Move to continent
                 this.genetic.moveAllToContinent();
+            }
+
+            if (gaContinent && continentalGenerationsLeft !== 0 && this.genetic instanceof IslandGeneticModel) {
+                continentalGenerationsLeft--;
 
                 await this.genetic.continentalEstimate();
-                await this.genetic.continentalBreed();
 
-                if (!continentalGenerationsLeft) {
+                if (!lastGeneration || breedLast) {
+                    await this.genetic.continentalBreed();
+                }
+
+                if (continentalGenerationsLeft === 0) {
                     // Move to ilands
                     this.genetic.migrateToIslands();
                 }
             } else {
                 await this.genetic.estimate();
 
-                console.log('Generation time: ', (Date.now() - now) / 1000, 's');
-                console.log('Stats: ', this.genetic.stats);
-
                 if (!lastGeneration || breedLast) {
                     await this.genetic.breed();
                 }
             }
+
+            console.log('Generation time: ', (Date.now() - now) / 1000, 's');
+            console.log('Stats: ', this.genetic.stats);
         }
     }
 
@@ -338,7 +334,7 @@ export class GeneticWrapper {
             this.deduplicateLookup.clear();
 
             console.log(
-                `Candles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
+                `\nCandles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
             );
 
             // Breed last generation as well
