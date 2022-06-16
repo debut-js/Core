@@ -289,7 +289,7 @@ export class GeneticWrapper {
             await this.disposePopulation();
 
             // Each 10 generation next 5 generations would be on continent
-            if (i % 20 === 0) {
+            if (i !== 0 && i % 20 === 0) {
                 continentalGenerationsLeft = 5;
             }
 
