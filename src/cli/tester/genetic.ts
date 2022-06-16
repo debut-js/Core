@@ -275,22 +275,22 @@ export class GeneticWrapper {
         for (let i = 0; i < generations; i++) {
             const lastGeneration = i === generations - 1;
             const now = Date.now();
-            const postfix = gaContinent ? (continentalGenerationsLeft !== 0 ? '(Continent)' : '(Ilands)') : '';
 
             this.transport.setTicks(ticks);
-
-            console.log(`Generation ${postfix}`, i);
 
             await this.subscribePopulation();
             await this.transport.run();
             await this.disposePopulation();
 
             // Each 10 generation next 5 generations would be on continent
-            if (i !== 0 && i % 2 === 0 && this.genetic instanceof IslandGeneticModel) {
+            if (i !== 0 && i % 15 === 0 && this.genetic instanceof IslandGeneticModel) {
                 continentalGenerationsLeft = 5;
                 // Move to continent
                 this.genetic.moveAllToContinent();
             }
+
+            const postfix = gaContinent ? (continentalGenerationsLeft !== 0 ? '(Continent)' : '(Ilands)') : '';
+            console.log(`Generation ${postfix}`, i);
 
             if (gaContinent && continentalGenerationsLeft !== 0 && this.genetic instanceof IslandGeneticModel) {
                 continentalGenerationsLeft--;
