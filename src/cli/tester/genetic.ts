@@ -7,8 +7,16 @@ import {
     SchemaDescriptor,
     DebutCore,
     GeneticWFOType,
+    GeneticType,
 } from '@debut/types';
-import { Genetic, GeneticOptions, Select } from 'async-genetic';
+import {
+    Genetic,
+    GeneticOptions,
+    Select,
+    IlandGeneticModel,
+    IlandGeneticModelOptions,
+    MigrateSelec,
+} from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
 import { Candle } from '@debut/types';
@@ -20,7 +28,7 @@ const MRI = 10;
  * Genetic allorithms class, it's wrapper for Debut strategies optimize
  */
 export class GeneticWrapper {
-    private genetic: Genetic<DebutCore>;
+    private genetic: IlandGeneticModel<DebutCore> | Genetic<DebutCore>;
     private transport: TesterTransport;
     private internalOptions: GeneticOptions<DebutCore>;
     private schema: GeneticSchema;
@@ -43,7 +51,19 @@ export class GeneticWrapper {
             deduplicate: this.deduplicate,
         };
 
-        this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
+        const ilandOptions: IlandGeneticModelOptions<DebutCore> = {
+            ilandCount: 8,
+            ilandMutationProbability: 0.8,
+            ilandCrossoverProbability: 0.8,
+            migrationProbability: 0.1,
+            migrationFunction: MigrateSelec.FittestLinear,
+        };
+
+        if (this.options.gaType === GeneticType.Iland) {
+            this.genetic = new IlandGeneticModel(ilandOptions, { ...this.internalOptions, ...this.options });
+        } else {
+            this.genetic = new Genetic<DebutCore>({ ...this.internalOptions, ...this.options });
+        }
 
         if (!options.validateSchema) {
             options.validateSchema = (cfg: DebutOptions) => cfg;
@@ -105,8 +125,10 @@ export class GeneticWrapper {
      * Subscribe all strategies to transport for next transport ticks listening
      */
     private async subscribePopulation() {
-        for (let i = 0; i < this.genetic.population.length; i++) {
-            const pair = this.genetic.population[i];
+        const population = this.genetic.population;
+
+        for (let i = 0; i < population.length; i++) {
+            const pair = population[i];
 
             await pair.entity.start();
         }
@@ -118,8 +140,10 @@ export class GeneticWrapper {
     private async disposePopulation() {
         this.transport.reset();
 
-        for (let i = 0; i < this.genetic.population.length; i++) {
-            const pair = this.genetic.population[i];
+        const population = this.genetic.population;
+
+        for (let i = 0; i < population.length; i++) {
+            const pair = population[i];
 
             await pair.entity.dispose();
         }
@@ -147,7 +171,7 @@ export class GeneticWrapper {
      * Estimate strategy, more fitness score mean strategy is good, less mean strategy bad
      */
     private fitness = async (bot: DebutCore) => {
-        const stats = this.options.stats(bot);
+        const stats = this.options.stats(bot) as Record<string, unknown>;
         const score = this.options.score(bot);
 
         return { state: stats, fitness: score };
