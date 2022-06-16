@@ -13,8 +13,8 @@ import {
     Genetic,
     GeneticOptions,
     Select,
-    IlandGeneticModel,
-    IlandGeneticModelOptions,
+    IslandGeneticModel,
+    IslandGeneticModelOptions,
     MigrateSelec,
 } from 'async-genetic';
 import { getHistory } from './history';
@@ -28,7 +28,7 @@ const MRI = 10;
  * Genetic allorithms class, it's wrapper for Debut strategies optimize
  */
 export class GeneticWrapper {
-    private genetic: IlandGeneticModel<DebutCore> | Genetic<DebutCore>;
+    private genetic: IslandGeneticModel<DebutCore> | Genetic<DebutCore>;
     private transport: TesterTransport;
     private internalOptions: GeneticOptions<DebutCore>;
     private schema: GeneticSchema;
@@ -51,16 +51,16 @@ export class GeneticWrapper {
             deduplicate: this.deduplicate,
         };
 
-        const ilandOptions: IlandGeneticModelOptions<DebutCore> = {
-            ilandCount: 8,
-            ilandMutationProbability: 0.8,
-            ilandCrossoverProbability: 0.8,
+        const ilandOptions: IslandGeneticModelOptions<DebutCore> = {
+            islandCount: 8,
+            islandMutationProbability: 0.8,
+            islandCrossoverProbability: 0.8,
             migrationProbability: 0.1,
             migrationFunction: MigrateSelec.FittestLinear,
         };
 
-        if (this.options.gaType === GeneticType.Iland) {
-            this.genetic = new IlandGeneticModel(ilandOptions, { ...this.internalOptions, ...this.options });
+        if (this.options.gaType === GeneticType.Island) {
+            this.genetic = new IslandGeneticModel(ilandOptions, { ...this.internalOptions, ...this.options });
         } else {
             this.genetic = new Genetic<DebutCore>({ ...this.internalOptions, ...this.options });
         }
@@ -106,8 +106,8 @@ export class GeneticWrapper {
             ticks = ticks.filter(this.options.ticksFilter(opts));
         }
 
-        console.log('Optimisations:', this.options.wfo ? `Wakl-Forward` : 'None');
-        console.log(`\nGenetic Start with ${ticks.length} candles\n`);
+        console.log(`\nOptimisations ' ${this.options.wfo ? `Walk-Forward` : 'None'}`);
+        console.log(`\nGenetic Start with ${ticks.length} ticks\n`);
 
         if (this.options.wfo) {
             await this.wfoGenetic(ticks, this.options.wfo);
@@ -263,25 +263,51 @@ export class GeneticWrapper {
     private async pureGenetic(ticks: Candle[], breedLast?: boolean) {
         await this.genetic.seed();
 
+        let continentalGenerationsLeft = 0;
+
         for (let i = 0; i < this.options.generations; i++) {
             const lastGeneration = i === this.options.generations - 1;
+            const now = Date.now();
+            const postfix = this.options.gaContinent
+                ? continentalGenerationsLeft !== 0
+                    ? '(Continent)'
+                    : '(Iland)'
+                : '';
 
             this.transport.setTicks(ticks);
 
-            const now = Date.now();
-
-            console.log('Generation: ', i);
+            console.log(`Generation ${postfix}`, i);
 
             await this.subscribePopulation();
             await this.transport.run();
             await this.disposePopulation();
-            await this.genetic.estimate();
 
-            console.log('Generation time: ', (Date.now() - now) / 1000, 's');
-            console.log('Stats: ', this.genetic.stats);
+            // Each 10 generation next 5 generations would be on continent
+            if (i % 20 === 0) {
+                continentalGenerationsLeft = 5;
+            }
 
-            if (!lastGeneration || breedLast) {
-                await this.genetic.breed();
+            if (continentalGenerationsLeft !== 0 && this.genetic instanceof IslandGeneticModel) {
+                continentalGenerationsLeft--;
+                // Move to continent
+                this.genetic.moveAllToContinent();
+
+                await this.genetic.continentalEstimate();
+                await this.genetic.continentalBreed();
+
+                if (!continentalGenerationsLeft) {
+                    // Move to ilands
+                    this.genetic.migrateToIslands();
+                }
+            } else {
+                await this.genetic.estimate();
+
+                console.log('Generation time: ', (Date.now() - now) / 1000, 's');
+                console.log('Stats: ', this.genetic.stats);
+
+                if (!lastGeneration || breedLast) {
+                    await this.genetic.breed();
+                }
             }
         }
     }
