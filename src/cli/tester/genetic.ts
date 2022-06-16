@@ -292,24 +292,18 @@ export class GeneticWrapper {
             const postfix = gaContinent ? (continentalGenerationsLeft !== 0 ? '(Continent)' : '(Ilands)') : '';
             console.log(`Generation ${postfix}`, i);
 
-            if (gaContinent && continentalGenerationsLeft !== 0 && this.genetic instanceof IslandGeneticModel) {
+            await this.genetic.estimate();
+
+            if (!lastGeneration || breedLast) {
+                await this.genetic.breed();
+            }
+
+            if (continentalGenerationsLeft !== 0) {
                 continentalGenerationsLeft--;
 
-                await this.genetic.continentalEstimate();
-
-                if (!lastGeneration || breedLast) {
-                    await this.genetic.continentalBreed();
-                }
-
-                if (continentalGenerationsLeft === 0) {
-                    // Move to ilands
+                // Move to ilands
+                if (continentalGenerationsLeft === 0 && this.genetic instanceof IslandGeneticModel) {
                     this.genetic.migrateToIslands();
-                }
-            } else {
-                await this.genetic.estimate();
-
-                if (!lastGeneration || breedLast) {
-                    await this.genetic.breed();
                 }
             }
 
