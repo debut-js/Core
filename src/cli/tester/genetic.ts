@@ -81,17 +81,17 @@ export class GeneticWrapper {
      * @returns - best N (by default 30) variants of configuration for current strategy
      */
     async start(schema: GeneticSchema, opts: DebutOptions) {
+        const { days, gapDays, wfo, best, ticksFilter, ohlc } = this.options;
+        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
+
         this.schema = schema;
         this.schemaKeys = Object.keys(schema);
         this.baseOpts = opts;
         this.transport = new TesterTransport({
-            ohlc: this.options.ohlc,
+            ohlc: ohlc,
             broker: opts.broker,
             ticker: opts.ticker,
         });
-
-        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
-        const { days, gapDays } = this.options;
 
         let ticks = await getHistory({
             broker,
@@ -102,21 +102,24 @@ export class GeneticWrapper {
             instrumentType,
         });
 
-        if (this.options.ticksFilter) {
-            ticks = ticks.filter(this.options.ticksFilter(opts));
+        if (ticksFilter) {
+            ticks = ticks.filter(ticksFilter(opts));
         }
 
-        console.log(`\nOptimisations ' ${this.options.wfo ? `Walk-Forward` : 'None'}`);
-        console.log(`\nGenetic Start with ${ticks.length} ticks\n`);
+        const optimisation = wfo ? 'Walk-Forward' : 'None';
+        const optimisationType = wfo ? (wfo === GeneticWFOType.Rolling ? '(Rolling)' : '(Classic)') : '';
 
-        if (this.options.wfo) {
-            await this.wfoGenetic(ticks, this.options.wfo);
+        console.log(`\nOptimisation: ${optimisation} ${optimisationType}`);
+        console.log(`\nTicks count: ${ticks.length}`);
+
+        if (wfo) {
+            await this.wfoGenetic(ticks, wfo);
         } else {
             await this.pureGenetic(ticks);
         }
 
         return this.genetic
-            .best(this.options.best || 30)
+            .best(best || 30)
             .reverse()
             .map((ph) => ({ config: ph.entity.opts, stats: ph.state }));
     }
@@ -287,7 +290,11 @@ export class GeneticWrapper {
                 continentalGenerationsLeft = 5;
             }
 
-            if (continentalGenerationsLeft !== 0 && this.genetic instanceof IslandGeneticModel) {
+            if (
+                this.options.gaContinent &&
+                continentalGenerationsLeft !== 0 &&
+                this.genetic instanceof IslandGeneticModel
+            ) {
                 continentalGenerationsLeft--;
                 // Move to continent
                 this.genetic.moveAllToContinent();
