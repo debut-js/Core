@@ -277,7 +277,7 @@ export class GeneticWrapper {
             const postfix = this.options.gaContinent
                 ? continentalGenerationsLeft !== 0
                     ? '(Continent)'
-                    : '(Iland)'
+                    : '(Ilands)'
                 : '';
 
             this.transport.setTicks(ticks);
