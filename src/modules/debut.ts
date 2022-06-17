@@ -312,7 +312,7 @@ export abstract class Debut implements DebutCore {
         return {
             opts: this.opts,
             orders: executedOrders,
-            pluginsData: this.pluginDriver.getPluginsSnapshot(),
+            pluginsData: this.pluginDriver.getSnapshot(),
         };
     }
 

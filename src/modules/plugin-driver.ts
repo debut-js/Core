@@ -101,7 +101,7 @@ export class PluginDriver implements PluginDriverInterface {
         }
     }
 
-    public getPluginsSnapshot(): Record<string, Record<string, unknown>> {
+    public getSnapshot(): Record<string, Record<string, unknown>> {
         const snapshot = {};
 
         for (const plugin of this.plugins) {
