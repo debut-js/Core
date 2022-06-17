@@ -1,5 +1,5 @@
 import { cli, file } from '@debut/plugin-utils';
-import { GenticWrapperOptions } from '@debut/types';
+import { GeneticType, GeneticWFOType, GenticWrapperOptions } from '@debut/types';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { GeneticWrapper } from './tester/genetic';
 
@@ -14,11 +14,27 @@ type Params = {
     gap?: number;
     amount?: number;
     crypt?: boolean;
-    walkFwd: 'aggressive' | 'conservative';
+    wfo?: GeneticWFOType;
+    gaType?: GeneticType;
+    gaContinent?: boolean;
 };
 
 const args = cli.getArgs<Params>();
-const { bot, ticker, log, amount = 10000, days = 1000, gen = 12, pop = 2000, ohlc, gap = 0, crypt, walkFwd } = args;
+const {
+    bot,
+    ticker,
+    log,
+    amount = 10000,
+    days = 1000,
+    gen = 12,
+    pop = 2000,
+    ohlc,
+    gap = 0,
+    crypt,
+    wfo,
+    gaContinent,
+    gaType,
+} = args;
 let schema: cli.BotData | null;
 
 (async function () {
@@ -46,7 +62,9 @@ let schema: cli.BotData | null;
         log,
         ohlc,
         gapDays: gap,
-        walkFwd,
+        wfo,
+        gaType,
+        gaContinent,
     };
     const { configs, meta } = schema;
     const cfgKeys = Object.keys(configs);
