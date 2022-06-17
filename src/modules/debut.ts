@@ -2,6 +2,7 @@ import { orders } from '@debut/plugin-utils';
 import { getHistory } from '../cli/tester/history';
 import { PluginDriver } from './plugin-driver';
 import {
+    BaseOrder,
     BaseTransport,
     Candle,
     DebutCore,
@@ -216,7 +217,7 @@ export abstract class Debut implements DebutCore {
         // Optimistic remove order from list
         this.removeOrder(closing);
 
-        if (closing.orderId) {
+        if (this.isExecuted(closing)) {
             let order: ExecutedOrder;
 
             if (this.transaction && this.transaction.canAppendOrder(pendingOrder)) {
@@ -237,8 +238,9 @@ export abstract class Debut implements DebutCore {
      * reduce = 0.25 mean 25% of order will be closed
      */
     public async reduceOrder(closing: ExecutedOrder, reduce: number) {
-        const reducedLots = this.transport.prepareLots(closing.lots * reduce);
-        const remainingLots = this.transport.prepareLots(closing.lots - reducedLots);
+        const { id } = this.instrument;
+        const reducedLots = this.transport.prepareLots(closing.lots * reduce, id);
+        const remainingLots = this.transport.prepareLots(closing.lots - reducedLots, id);
         const pendingOrder = this.createClosePending(closing, { lots: reducedLots, reduce });
         const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeClose, pendingOrder, closing);
 
@@ -364,16 +366,17 @@ export abstract class Debut implements DebutCore {
             type,
             author: this.getName(),
             price,
+            lots: 0,
             time,
             ...details,
         };
     }
 
-    private createClosePending(closing: ExecutedOrder, details: Partial<PendingOrder> = null) {
+    private createClosePending(closing: PendingOrder | ExecutedOrder, details: Partial<PendingOrder> = null) {
         const pendingDetails: Partial<PendingOrder> = {
             lots: closing.lots,
             openPrice: closing.price,
-            openId: closing.orderId,
+            openId: this.isExecuted(closing) ? closing.orderId : closing.cid,
             sandbox: closing.sandbox,
             learning: closing.learning,
             close: true,
@@ -400,17 +403,12 @@ export abstract class Debut implements DebutCore {
     /**
      * Update existing order attributes
      */
-    private updateOrder(order: PendingOrder | ExecutedOrder, key: keyof ExecutedOrder, value: unknown): void {
-        const target = this.orders.find((item) => item.cid === order.cid);
+    private updateOrder(order: PendingOrder | ExecutedOrder, key: keyof BaseOrder, value: unknown): void {
+        const changes: Partial<BaseOrder> = { [key]: value };
+        // Mutation update
+        Object.assign(order, changes);
 
-        if (!target) {
-            throw new DebutError(ErrorEnvironment.Core, `Order with id: ${order.id || order.cid} not found`);
-        }
-
-        // TODO: How to notify plugins?
-        // OnOrderUpdated hook
-
-        target[key] = value;
+        this.pluginDriver.reduce(PluginHook.onOrderUpdated, order, changes);
     }
 
     /**
@@ -427,6 +425,10 @@ export abstract class Debut implements DebutCore {
         if (this.opts.broker !== 'binance' && this.opts.instrumentType === 'FUTURES') {
             throw this.createCoreError('Futures are supported only on "Binance" broker');
         }
+    }
+
+    private isExecuted(order: PendingOrder | ExecutedOrder): order is ExecutedOrder {
+        return 'orderId' in order;
     }
 
     protected async onOrderClosed(order: ExecutedOrder, closing: ExecutedOrder): Promise<void> {}

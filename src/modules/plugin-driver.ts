@@ -8,6 +8,8 @@ import {
     PluginHook,
     SkipHookArgumentsMap,
     AsyncHookArgumentsMap,
+    SyncHooks,
+    SyncHookArgumentsMap,
 } from '@debut/types';
 
 export class PluginDriver implements PluginDriverInterface {
@@ -91,6 +93,20 @@ export class PluginDriver implements PluginDriverInterface {
         for (const hook of this.registeredHooks[hookName]) {
             await hook(...args);
         }
+    }
+
+    public reduce(hookName: SyncHooks, ...args: Parameters<SyncHookArgumentsMap[SyncHooks]>) {
+        for (const hook of this.registeredHooks[hookName]) {
+            hook(...args);
+        }
+    }
+
+    public getPluginsSnapshot(): Record<string, unknown> {
+        return {};
+    }
+
+    public restorePluginsSnapshot(): void {
+        return void 0;
     }
 
     private registerHook(hookName: PluginHook, hook: Function) {
