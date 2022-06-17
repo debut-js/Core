@@ -66,7 +66,7 @@ export class PluginDriver implements PluginDriverInterface {
     }
 
     public getPublicAPI() {
-        const api: unknown = {};
+        const api: Record<string, unknown> = {};
 
         for (const plugin of this.plugins) {
             if ('api' in plugin) {

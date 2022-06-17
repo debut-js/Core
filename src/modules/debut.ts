@@ -26,7 +26,7 @@ export abstract class Debut implements DebutCore {
     public orders: Array<ExecutedOrder | PendingOrder> = [];
     public transport: BaseTransport;
     public learning: boolean;
-    protected plugins: unknown;
+    protected plugins: Record<string, unknown>;
     protected candles: Candle[] = [];
     private pluginDriver: PluginDriver;
     private orderBookSubscribtion: Promise<() => void> | null;
