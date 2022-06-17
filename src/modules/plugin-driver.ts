@@ -101,12 +101,28 @@ export class PluginDriver implements PluginDriverInterface {
         }
     }
 
-    public getPluginsSnapshot(): Record<string, unknown> {
-        return {};
+    public getPluginsSnapshot(): Record<string, Record<string, unknown>> {
+        const snapshot = {};
+
+        for (const plugin of this.plugins) {
+            if (PluginHook.onSnapshot in plugin) {
+                const hookResult = plugin[PluginHook.onSnapshot].call(this.pluginCtx);
+
+                snapshot[plugin.name] = { ...snapshot[plugin.name], ...hookResult };
+            }
+        }
+
+        return snapshot;
     }
 
-    public restorePluginsSnapshot(): void {
-        return void 0;
+    public hydrateSnapshot(snapshot: Record<string, Record<string, unknown>>): void {
+        for (const plugin of this.plugins) {
+            const pluginData = snapshot[plugin.name];
+
+            if (PluginHook.onHydrate in plugin && pluginData) {
+                plugin[PluginHook.onHydrate].call(this.pluginCtx, pluginData);
+            }
+        }
     }
 
     private registerHook(hookName: PluginHook, hook: Function) {

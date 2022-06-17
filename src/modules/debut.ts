@@ -14,6 +14,7 @@ import {
     PendingOrder,
     PluginHook,
     PluginInterface,
+    DebutSnapshotData,
 } from '@debut/types';
 import { DebutError, ErrorEnvironment } from './error';
 import { Transaction } from '../transports/utils/transaction';
@@ -287,6 +288,32 @@ export abstract class Debut implements DebutCore {
         }
 
         this.learning = false;
+    }
+
+    /**
+     * Restore debut from saved snapshot data
+     */
+    public hydrateSnapshot(snapshot: Partial<DebutSnapshotData>) {
+        this.opts = snapshot.opts || this.opts;
+        this.orders = snapshot.orders || [];
+        this.pluginDriver.hydrateSnapshot(snapshot.pluginsData);
+    }
+
+    /**
+     * Get snapshot data for savings and next restore if runtime works suspended by critical reasons
+     */
+    public getSnapshot(): Partial<DebutSnapshotData> {
+        if (this.learning) {
+            return {};
+        }
+
+        const executedOrders: ExecutedOrder[] = this.orders.filter(this.isExecuted);
+
+        return {
+            opts: this.opts,
+            orders: executedOrders,
+            pluginsData: this.pluginDriver.getPluginsSnapshot(),
+        };
     }
 
     private handler = async (tick: Candle) => {
