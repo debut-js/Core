@@ -9,14 +9,7 @@ import {
     GeneticWFOType,
     GeneticType,
 } from '@debut/types';
-import {
-    Genetic,
-    GeneticOptions,
-    Select,
-    IslandGeneticModel,
-    IslandGeneticModelOptions,
-    MigrateSelec,
-} from 'async-genetic';
+import { Genetic, GeneticOptions, Select, IslandGeneticModel, IslandGeneticModelOptions, Migrate } from 'async-genetic';
 import { getHistory } from './history';
 import { TesterTransport } from './tester-transport';
 import { Candle } from '@debut/types';
@@ -56,7 +49,7 @@ export class GeneticWrapper {
             islandMutationProbability: 0.8,
             islandCrossoverProbability: 0.8,
             migrationProbability: 0.1,
-            migrationFunction: MigrateSelec.FittestLinear,
+            migrationFunction: Migrate.FittestLinear,
         };
 
         if (this.options.gaType === GeneticType.Island) {
