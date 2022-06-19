@@ -23,7 +23,7 @@
         "genetic": "lib/cli/genetic.js"
     },
     "dependencies": {
-        "@debut/plugin-utils": "^1.4.0-beta.1",
+        "@debut/plugin-utils": "^1.4.0-beta.2",
         "@master-chief/alpaca": "^6.3.11",
         "@types/ws": "^8.2.2",
         "async-genetic": "^1.6.4",
