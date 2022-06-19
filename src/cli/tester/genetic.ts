@@ -3,17 +3,19 @@ import {
     DebutOptions,
     GeneticSchema,
     GenticWrapperOptions,
-    WorkingEnv,
     SchemaDescriptor,
-    DebutCore,
     GeneticWFOType,
     GeneticType,
 } from '@debut/types';
 import { Genetic, GeneticOptions, Select, IslandGeneticModel, IslandGeneticModelOptions, Migrate } from 'async-genetic';
 import { getHistory } from './history';
-import { TesterTransport } from './tester-transport';
 import { Candle } from '@debut/types';
+import cluster, { Worker } from 'node:cluster';
+import process from 'node:process';
+import { cpus } from 'node:os';
+import type { ThreadMessage } from './genetic-worker';
 
+const numCPUs = cpus().length;
 // MRI - Max Recursion Iterations
 const MRI = 10;
 
@@ -21,13 +23,14 @@ const MRI = 10;
  * Genetic allorithms class, it's wrapper for Debut strategies optimize
  */
 export class GeneticWrapper {
-    private genetic: IslandGeneticModel<DebutCore> | Genetic<DebutCore>;
-    private transport: TesterTransport;
-    private internalOptions: GeneticOptions<DebutCore>;
+    private genetic: IslandGeneticModel<DebutOptions> | Genetic<DebutOptions>;
+    private internalOptions: GeneticOptions<DebutOptions>;
     private schema: GeneticSchema;
     private schemaKeys: string[];
-    private deduplicateLookup = new Set<string>();
     private baseOpts: DebutOptions;
+    private workers: Worker[] = [];
+    private activeWorker = 0;
+    private tasksRegistered = 0;
 
     constructor(private options: GenticWrapperOptions) {
         this.internalOptions = {
@@ -41,10 +44,9 @@ export class GeneticWrapper {
             fittestNSurvives: 2,
             mutateProbablity: 0.3,
             crossoverProbablity: 0.6,
-            deduplicate: this.deduplicate,
         };
 
-        const ilandOptions: IslandGeneticModelOptions<DebutCore> = {
+        const ilandOptions: IslandGeneticModelOptions<DebutOptions> = {
             islandCount: options.populationSize * 0.01,
             islandMutationProbability: 0.8,
             islandCrossoverProbability: 0.8,
@@ -55,7 +57,7 @@ export class GeneticWrapper {
         if (this.options.gaType === GeneticType.Island) {
             this.genetic = new IslandGeneticModel(ilandOptions, { ...this.internalOptions, ...this.options });
         } else {
-            this.genetic = new Genetic<DebutCore>({ ...this.internalOptions, ...this.options });
+            this.genetic = new Genetic({ ...this.internalOptions, ...this.options });
         }
 
         if (!options.validateSchema) {
@@ -74,17 +76,14 @@ export class GeneticWrapper {
      * @returns - best N (by default 30) variants of configuration for current strategy
      */
     async start(schema: GeneticSchema, opts: DebutOptions) {
-        const { days, gapDays, wfo, best, ticksFilter, ohlc, gaContinent, gaType } = this.options;
+        const { days, gapDays, wfo, best, ticksFilter, gaContinent, gaType } = this.options;
         const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
 
         this.schema = schema;
         this.schemaKeys = Object.keys(schema);
         this.baseOpts = opts;
-        this.transport = new TesterTransport({
-            ohlc: ohlc,
-            broker: opts.broker,
-            ticker: opts.ticker,
-        });
+
+        await this.createWorkerThreads();
 
         let ticks = await getHistory({
             broker,
@@ -104,6 +103,7 @@ export class GeneticWrapper {
         const gaMode = gaType === GeneticType.Island ? 'Islands' : 'Classic';
         const gaExtra = gaType === GeneticType.Island && gaContinent ? '+ Continent' : '';
 
+        console.log(`\nAvailable CPU's: ${numCPUs}`);
         console.log(`\nOptimisation: ${optimisation} ${optimisationType}`);
         console.log(`\nGenetic Mode: ${gaMode} ${gaExtra}`);
         console.log(`\nTicks count: ${ticks.length}`);
@@ -117,35 +117,7 @@ export class GeneticWrapper {
         return this.genetic
             .best(best || 30)
             .reverse()
-            .map((ph) => ({ config: ph.entity.opts, stats: ph.state }));
-    }
-
-    /**
-     * Subscribe all strategies to transport for next transport ticks listening
-     */
-    private async subscribePopulation() {
-        const population = this.genetic.population;
-
-        for (let i = 0; i < population.length; i++) {
-            const pair = population[i];
-
-            await pair.entity.start();
-        }
-    }
-
-    /**
-     * Destroy strategy listeners in transport, off tick listeners and call destructor in strategy (dispose method)
-     */
-    private async disposePopulation() {
-        this.transport.reset();
-
-        const population = this.genetic.population;
-
-        for (let i = 0; i < population.length; i++) {
-            const pair = population[i];
-
-            await pair.entity.dispose();
-        }
+            .map((ph) => ({ config: ph.entity, stats: ph.state }));
     }
 
     /**
@@ -160,7 +132,7 @@ export class GeneticWrapper {
 
         // Prevent recursion infinite loop and check validity
         if (i >= MRI || this.options.validateSchema(config)) {
-            return this.createBot(config);
+            return config;
         }
 
         return this.getRandomSolution();
@@ -169,31 +141,28 @@ export class GeneticWrapper {
     /**
      * Estimate strategy, more fitness score mean strategy is good, less mean strategy bad
      */
-    private fitness = async (bot: DebutCore) => {
-        const stats = this.options.stats(bot) as Record<string, unknown>;
-        const score = this.options.score(bot);
+    private fitness = async (cfg: DebutOptions, isLast: boolean) => {
+        const result = await this.cretaThreadTask(cfg);
 
-        return { state: stats, fitness: score };
+        return { fitness: result.score, state: result.stats as Record<string, unknown> };
     };
 
     /**
      * Mutate configurations (self reproducing with mutations or not, depends on mutation probability)
      */
-    private mutate = async (bot: DebutCore, i: number = 0) => {
-        const config = { ...bot.opts };
-
+    private mutate = async (cfg: DebutOptions, i: number = 0) => {
         this.schemaKeys.forEach((key) => {
             if (key in this.schema) {
-                config[key] = getRandomByRange(this.schema[key]);
+                cfg[key] = getRandomByRange(this.schema[key]);
             }
         });
 
         // Prevent recursion calls for validation
-        if (i >= MRI || this.options.validateSchema(config)) {
-            return this.createBot(config);
+        if (i >= MRI || this.options.validateSchema(cfg)) {
+            return cfg;
         }
 
-        return this.mutate(bot, ++i);
+        return this.mutate(cfg, ++i);
     };
 
     /**
@@ -203,13 +172,13 @@ export class GeneticWrapper {
      * @param i - deep recursion calls counter
      * @returns return two new strategy configuration as childs of current parents
      */
-    private crossover = async (mother: DebutCore, father: DebutCore, i: number = 0) => {
-        const sonConfig: DebutOptions = { ...father.opts };
-        const daughterConfig: DebutOptions = { ...mother.opts };
+    private crossover = async (mother: DebutOptions, father: DebutOptions, i: number = 0) => {
+        const sonConfig: DebutOptions = { ...father };
+        const daughterConfig: DebutOptions = { ...mother };
 
         this.schemaKeys.forEach((key: string) => {
-            const source1 = Math.random() > 0.5 ? mother.opts : father.opts;
-            const source2 = Math.random() > 0.5 ? father.opts : mother.opts;
+            const source1 = Math.random() > 0.5 ? mother : father;
+            const source2 = Math.random() > 0.5 ? father : mother;
 
             sonConfig[key] = source1[key];
             daughterConfig[key] = source2[key];
@@ -217,41 +186,107 @@ export class GeneticWrapper {
 
         // Infinite recursion preventing and validation checks
         if (i >= MRI || (this.options.validateSchema(sonConfig) && this.options.validateSchema(daughterConfig))) {
-            return [await this.createBot(sonConfig), await this.createBot(daughterConfig)];
+            return [sonConfig, daughterConfig];
         }
 
         return this.crossover(mother, father, ++i);
     };
 
     /**
-     * Create duplications hashmap for remove same configurations from populations
-     * @param bot - strategy
-     * @returns true when unique false when duplicate and removed
+     * Multi processing threads
      */
-    private deduplicate = (bot: DebutCore) => {
-        const hash = bot.id;
+    private async createWorkerThreads() {
+        const promises: Promise<unknown>[] = [];
 
-        if (this.deduplicateLookup.has(hash)) {
-            bot.dispose();
-            return false;
+        console.log(`Primary ${process.pid} is running\n`);
+
+        // Fork workers.
+        for (let i = 0; i < numCPUs; i++) {
+            const worker = cluster.fork();
+            worker.setMaxListeners(Number(this.options.populationSize));
+            this.workers.push(worker);
+
+            promises.push(new Promise((resolve) => worker.once('online', resolve)));
         }
 
-        this.deduplicateLookup.add(hash);
+        cluster.on('exit', (worker, code, signal) => {
+            console.log(`worker ${worker.process.pid} died`);
+        });
 
-        return true;
-    };
+        return Promise.all(promises);
+    }
 
     /**
-     * Create strategy from options and assign strategy id based on options hash funtion
-     * @param config - strategy options
-     * @returns strategy
+     * Send ticks data to threads
      */
-    private async createBot(config: DebutOptions) {
-        const hash = JSON.stringify(config, Object.keys(config).sort());
-        const bot = await this.options.create(this.transport, config, WorkingEnv.genetic);
-        bot.id = hash;
+    private async setThreadTicks(setTicks: Candle[]) {
+        for (const worker of this.workers) {
+            const msg: ThreadMessage = { setTicks };
 
-        return bot;
+            await this.sendMessage(worker, msg);
+        }
+    }
+
+    /**
+     * Run tasks in threads
+     */
+    private async runThreadTasks() {
+        for (const worker of this.workers) {
+            const msg: ThreadMessage = { estimate: true };
+
+            await this.sendMessage(worker, msg);
+        }
+    }
+
+    /**
+     * Send task to thread
+     */
+    private async cretaThreadTask(config: DebutOptions) {
+        const id = JSON.stringify(config, Object.keys(config).sort());
+        const worker = this.workers[this.activeWorker];
+
+        this.activeWorker++;
+        this.tasksRegistered++;
+
+        if (this.activeWorker === this.workers.length) {
+            this.activeWorker = 0;
+        }
+
+        await this.sendMessage(worker, { addTask: { id, config } });
+
+        const promise: Promise<{ stats: unknown; score: number }> = new Promise(async (resolve) => {
+            const handler = (msg: ThreadMessage) => {
+                if (msg.results && msg.results.id === id) {
+                    resolve(msg.results);
+                    worker.off('message', handler);
+                }
+            };
+
+            worker.on('message', handler);
+        });
+
+        // TODO: Performance issue when islands on
+        if (this.genetic.population.length === this.tasksRegistered) {
+            // When all tasks created start worekrs
+            this.runThreadTasks();
+        }
+
+        return promise;
+    }
+
+    /**
+     * Send async message to worker
+     */
+    private async sendMessage(wokrer: Worker, message: ThreadMessage) {
+        return new Promise((resolve, reject) => {
+            wokrer.send(message, null, (err) => {
+                if (err) {
+                    return reject(err);
+                }
+
+                return resolve(void 0);
+            });
+        });
     }
 
     /**
@@ -269,11 +304,7 @@ export class GeneticWrapper {
             const lastGeneration = i === generations - 1;
             const now = Date.now();
 
-            this.transport.setTicks(ticks);
-
-            await this.subscribePopulation();
-            await this.transport.run();
-            await this.disposePopulation();
+            await this.setThreadTicks(ticks);
 
             // Each 10 generation next 5 generations would be on continent
             if (i !== 0 && i % 15 === 0 && this.genetic instanceof IslandGeneticModel) {
@@ -318,15 +349,12 @@ export class GeneticWrapper {
             const [backtest, walkTest] = forwardSegments[k];
             const lastSegment = k === forwardSegments.length - 1;
 
-            this.deduplicateLookup.clear();
-
             console.log(
                 `\nCandles count for each test segment is: ${backtest.length} - backtest, ${walkTest.length} - forward test`,
             );
 
             // Breed last generation as well
             await this.pureGenetic(backtest, true);
-            await this.subscribePopulation();
 
             // At last segment estimate all entities at full time and generate report
             if (lastSegment) {
@@ -344,12 +372,8 @@ export class GeneticWrapper {
      * Test population in custom period
      */
     private async test(walkTest: Candle[]) {
-        await this.subscribePopulation();
+        await this.setThreadTicks(walkTest);
 
-        this.transport.setTicks(walkTest);
-
-        await this.transport.run();
-        await this.disposePopulation();
         await this.genetic.estimate();
     }
 }
