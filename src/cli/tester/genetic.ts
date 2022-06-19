@@ -1,4 +1,5 @@
 import { math } from '@debut/plugin-utils';
+import { createHash } from 'node:crypto';
 import {
     DebutOptions,
     GeneticSchema,
@@ -242,7 +243,8 @@ export class GeneticWrapper {
      * Send task to thread
      */
     private async cretaThreadTask(config: DebutOptions) {
-        const id = JSON.stringify(config, Object.keys(config).sort());
+        const str = JSON.stringify(config, Object.keys(config).sort());
+        const id = createHash('md5').update(str).digest('hex');
         const worker = this.workers[this.activeWorker];
 
         this.activeWorker++;
