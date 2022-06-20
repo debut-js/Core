@@ -26,7 +26,7 @@ export class GeneticWorker {
 
     constructor(ohlc: boolean, ticker: string, bot: string) {
         process.on('message', async (msg: ThreadMessage) => {
-            if (!this.schema) {
+            if (!this.schema && !this.transport) {
                 this.schema = await cli.getBotData(bot);
                 const cfg = this.schema.configs[ticker];
                 this.transport = new TesterTransport({ ohlc, broker: cfg.broker, ticker });
