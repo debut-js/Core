@@ -197,9 +197,10 @@ export class GeneticWrapper {
      */
     private async createWorkerThreads() {
         const promises: Promise<unknown>[] = [];
+        const threads = this.options.limitThreads ? Math.min(Number(this.options.limitThreads), numCPUs) : numCPUs;
 
         // Fork workers.
-        for (let i = 0; i < numCPUs; i++) {
+        for (let i = 0; i < threads; i++) {
             const worker = cluster.fork();
             worker.setMaxListeners(Number(this.options.populationSize));
             this.workers.push(worker);

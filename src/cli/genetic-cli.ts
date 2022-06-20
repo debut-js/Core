@@ -19,6 +19,7 @@ type GeneticParams = {
     wfo?: GeneticWFOType;
     gaType?: GeneticType;
     gaContinent?: boolean;
+    maxThreads?: number;
 };
 
 const args = cli.getArgs() as GeneticParams;
@@ -36,6 +37,7 @@ const {
     wfo,
     gaType,
     gaContinent,
+    maxThreads,
 } = args;
 let schema: cli.BotData | null;
 
