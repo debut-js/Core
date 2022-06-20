@@ -12,7 +12,6 @@ import { Genetic, GeneticOptions, Select, IslandGeneticModel, IslandGeneticModel
 import { getHistory } from './history';
 import { Candle } from '@debut/types';
 import cluster, { Worker } from 'node:cluster';
-import process from 'node:process';
 import { cpus } from 'node:os';
 import type { ThreadMessage } from './genetic-worker';
 
@@ -230,6 +229,8 @@ export class GeneticWrapper {
      * Run tasks in threads
      */
     private async runThreadTasks() {
+        this.tasksRegistered = 0;
+
         for (const worker of this.workers) {
             const msg: ThreadMessage = { estimate: true };
 
