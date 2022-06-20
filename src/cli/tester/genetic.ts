@@ -199,8 +199,6 @@ export class GeneticWrapper {
     private async createWorkerThreads() {
         const promises: Promise<unknown>[] = [];
 
-        console.log(`Primary ${process.pid} is running\n`);
-
         // Fork workers.
         for (let i = 0; i < numCPUs; i++) {
             const worker = cluster.fork();
