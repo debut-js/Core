@@ -69,6 +69,7 @@ let schema: cli.BotData | null;
             wfo,
             gaType,
             gaContinent,
+            maxThreads,
         };
 
         const genetic = new GeneticWrapper(options);
