@@ -76,7 +76,7 @@ export class GeneticWrapper {
      * @returns - best N (by default 30) variants of configuration for current strategy
      */
     async start(schema: GeneticSchema, opts: DebutOptions) {
-        const { days, gapDays, wfo, best, ticksFilter, gaContinent, gaType } = this.options;
+        const { days, gapDays, wfo, best, ticksFilter, gaContinent, gaType, maxThreads } = this.options;
         const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
 
         this.schema = schema;
@@ -103,7 +103,7 @@ export class GeneticWrapper {
         const gaMode = gaType === GeneticType.Island ? 'Islands' : 'Classic';
         const gaExtra = gaType === GeneticType.Island && gaContinent ? '+ Continent' : '';
 
-        console.log(`\nAvailable CPU's: ${numCPUs}`);
+        console.log(`\nAvailable CPU's: ${numCPUs}`, `Used CPU's`, Math.min(maxThreads, numCPUs));
         console.log(`\nOptimisation: ${optimisation} ${optimisationType}`);
         console.log(`\nGenetic Mode: ${gaMode} ${gaExtra}`);
         console.log(`\nTicks count: ${ticks.length}`);
