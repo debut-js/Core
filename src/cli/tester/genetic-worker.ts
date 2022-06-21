@@ -38,7 +38,7 @@ export class GeneticWorker {
                     const bot = await this.createBot(config, id);
 
                     this.bots.push(bot);
-                    bot.start();
+                    await bot.start();
                 }
 
                 if (msg.estimate) {

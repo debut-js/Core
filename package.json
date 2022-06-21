@@ -26,7 +26,7 @@
         "@debut/plugin-utils": "^1.4.0-beta.2",
         "@master-chief/alpaca": "^6.3.11",
         "@types/ws": "^8.2.2",
-        "async-genetic": "^1.6.4",
+        "async-genetic": "^1.6.7",
         "binance-api-node": "0.11.29",
         "cli-progress": "^3.10.0",
         "nice-grpc": "^1.2.0",

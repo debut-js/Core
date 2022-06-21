@@ -103,7 +103,7 @@ export class GeneticWrapper {
         const gaMode = gaType === GeneticType.Island ? 'Islands' : 'Classic';
         const gaExtra = gaType === GeneticType.Island && gaContinent ? '+ Continent' : '';
 
-        console.log(`\nAvailable CPU's: ${numCPUs}`, `Used CPU's`, Math.min(maxThreads, numCPUs));
+        console.log(`\nUsed ${Math.min(maxThreads || 0, numCPUs)} of ${numCPUs} CPU's`);
         console.log(`\nOptimisation: ${optimisation} ${optimisationType}`);
         console.log(`\nGenetic Mode: ${gaMode} ${gaExtra}`);
         console.log(`\nTicks count: ${ticks.length}`);
@@ -141,8 +141,8 @@ export class GeneticWrapper {
     /**
      * Estimate strategy, more fitness score mean strategy is good, less mean strategy bad
      */
-    private fitness = async (cfg: DebutOptions, isLast: boolean) => {
-        const result = await this.cretaThreadTask(cfg);
+    private fitness = async (cfg: DebutOptions) => {
+        const result = await this.createThreadTask(cfg);
 
         return { fitness: result.score, state: result.stats as Record<string, unknown> };
     };
@@ -242,7 +242,7 @@ export class GeneticWrapper {
     /**
      * Send task to thread
      */
-    private async cretaThreadTask(config: DebutOptions) {
+    private async createThreadTask(config: DebutOptions) {
         const str = JSON.stringify(config, Object.keys(config).sort());
         const id = createHash('md5').update(str).digest('hex');
         const worker = this.workers[this.activeWorker];
@@ -256,7 +256,7 @@ export class GeneticWrapper {
 
         await this.sendMessage(worker, { addTask: { id, config } });
 
-        const promise: Promise<{ stats: unknown; score: number }> = new Promise(async (resolve) => {
+        const promise: Promise<{ stats: unknown; score: number }> = new Promise((resolve) => {
             const handler = (msg: ThreadMessage) => {
                 if (msg.results && msg.results.id === id) {
                     resolve(msg.results);
@@ -281,7 +281,7 @@ export class GeneticWrapper {
      */
     private async sendMessage(wokrer: Worker, message: ThreadMessage) {
         return new Promise((resolve, reject) => {
-            wokrer.send(message, null, (err) => {
+            wokrer.send(message, (err) => {
                 if (err) {
                     return reject(err);
                 }
