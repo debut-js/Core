@@ -197,7 +197,7 @@ export class GeneticWrapper {
      */
     private async createWorkerThreads() {
         const promises: Promise<unknown>[] = [];
-        const threads = this.options.limitThreads ? Math.min(Number(this.options.limitThreads), numCPUs) : numCPUs;
+        const threads = this.options.maxThreads ? Math.min(Number(this.options.maxThreads), numCPUs) : numCPUs;
 
         // Fork workers.
         for (let i = 0; i < threads; i++) {
@@ -319,8 +319,10 @@ export class GeneticWrapper {
             console.log(`Generation ${postfix}`, i);
 
             await this.genetic.estimate();
+            console.log('estimated');
 
             if (!lastGeneration || breedLast) {
+                console.log('breed');
                 await this.genetic.breed();
             }
 
