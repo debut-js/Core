@@ -22,36 +22,34 @@ export function createRequestBinance(instrumentType: InstrumentType) {
         ticker: string,
         interval: TimeFrame,
     ): Promise<Candle[]> {
-        const frameMin = convertTimeFrame(interval);
-        const middleDay = from + 12 * 60 * 60 * 1000 - 1000;
         const frameMs = date.intervalToMs(interval);
-        // Eclude last candle from timeframe
-        to = to - frameMs;
+        const frameMin = frameMs / 1000 / 60;
+        const binanceFrame = convertTimeFrame(interval);
 
-        const urlPart1 = `${apiBase}/klines?symbol=${ticker}&interval=${frameMin}&startTime=${from}&endTime=${middleDay}&limit=720`;
-        const urlPart2 = `${apiBase}/klines?symbol=${ticker}&interval=${frameMin}&startTime=${middleDay}&endTime=${to}&limit=720`;
-        const req1: Promise<[]> = fetch(urlPart1).then((res) => res.json());
-        const req2: Promise<[]> = middleDay < to ? fetch(urlPart2).then((res) => res.json()) : Promise.resolve([]);
-        const candles1 = (await req1) || [];
-        const candles2 = (await req2) || [];
+        if (frameMin <= 60) {
+            const middleDay = from + 12 * 60 * 60 * 1000 - 1000;
+            // Eclude last candle from timeframe
+            to = to - frameMs;
 
-        if (!Array.isArray(candles2) || !Array.isArray(candles1)) {
-            throw new DebutError(ErrorEnvironment.History, candles1['msg'] || candles2['msg']);
+            const urlPart1 = `${apiBase}/klines?symbol=${ticker}&interval=${binanceFrame}&startTime=${from}&endTime=${middleDay}&limit=720`;
+            const urlPart2 = `${apiBase}/klines?symbol=${ticker}&interval=${binanceFrame}&startTime=${middleDay}&endTime=${to}&limit=720`;
+            const req1: Promise<[]> = fetch(urlPart1).then((res) => res.json());
+            const req2: Promise<[]> = middleDay < to ? fetch(urlPart2).then((res) => res.json()) : Promise.resolve([]);
+            const candles1 = (await req1) || [];
+            const candles2 = (await req2) || [];
+
+            if (!Array.isArray(candles2) || !Array.isArray(candles1)) {
+                throw new DebutError(ErrorEnvironment.History, candles1['msg'] || candles2['msg']);
+            }
+
+            return convertBinanceTicks([...candles1, ...candles2]);
+        } else {
+            const url = `${apiBase}/klines?symbol=${ticker}&interval=${binanceFrame}&startTime=${from}&endTime=${to}`;
+            const req1: Promise<[]> = fetch(url).then((res) => res.json());
+            const candles1 = (await req1) || [];
+
+            return convertBinanceTicks(candles1);
         }
-
-        const result = convertBinanceTicks([...candles1, ...candles2]);
-
-        const startMinutes = new Date(result[0].time).getMinutes();
-        const endMinutes = new Date(result[result.length - 1].time).getMinutes();
-        const expectedStartMinutes = 0;
-        const expectedEndMinutes = 60 - frameMs;
-
-        // Assert invalid dates
-        if (expectedStartMinutes !== startMinutes || expectedEndMinutes !== endMinutes) {
-            console.warn('Invalid history chunk, report to debut maintainer');
-        }
-
-        return result;
     };
 }
 
