@@ -114,6 +114,8 @@ export class GeneticWrapper {
             await this.pureGenetic(ticks);
         }
 
+        this.disposeeWorkerThreads();
+
         return this.genetic
             .best(best || 30)
             .reverse()
@@ -213,6 +215,16 @@ export class GeneticWrapper {
         });
 
         return Promise.all(promises);
+    }
+
+    /**
+     * Stop all multi processing threads
+     */
+    private async disposeeWorkerThreads() {
+        for (const worker of this.workers) {
+            worker.disconnect();
+            worker.kill();
+        }
     }
 
     /**
