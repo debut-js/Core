@@ -331,10 +331,8 @@ export class GeneticWrapper {
             console.log(`Generation ${postfix}`, i);
 
             await this.genetic.estimate();
-            console.log('estimated');
 
             if (!lastGeneration || breedLast) {
-                console.log('breed');
                 await this.genetic.breed();
             }
 
