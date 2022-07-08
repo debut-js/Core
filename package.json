@@ -56,6 +56,10 @@
         "ts-node": "^10.8.1",
         "typescript": "^4.7.0"
     },
+    "peerDependencies": {
+        "protobufjs": "^6.11.3",
+        "ts-error": "^1.0.6"
+    },
     "husky": {
         "hooks": {
             "pre-commit": "git-format-staged -f 'prettier --stdin --stdin-filepath \"{}\"' '*.ts' '*.json'"
