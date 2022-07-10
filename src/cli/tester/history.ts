@@ -51,6 +51,10 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     const now = new Date();
     const stamp = gapDays ? roundDay(now.getTime()) : now.getTime();
 
+    if (!days) {
+        throw new DebutError(ErrorEnvironment.History, 'History start date does not passed use `--days N`');
+    }
+
     let end = stamp - DAY * gapDays;
     let from = roundDay(end - DAY * days);
     let to = from;
