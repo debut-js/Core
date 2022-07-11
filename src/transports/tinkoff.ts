@@ -150,7 +150,7 @@ export class TinkoffTransport implements BaseTransport {
         try {
             const { figi } = await this.getInstrument(opts);
             const unsubscribe = this.api.stream.market.on('data', ({ orderbook }) => {
-                if (orderbook) {
+                if (orderbook && orderbook.figi === figi) {
                     const bids = orderbook.bids.map(transformTinkoffStreamOrder);
                     const asks = orderbook.asks.map(transformTinkoffStreamOrder);
                     handler({ bids, asks });
