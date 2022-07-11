@@ -130,7 +130,9 @@ export class TinkoffTransport implements BaseTransport {
             const { figi } = await this.getInstrument(opts);
             const interval = transformTimeFrameToSubscriptionsInterval(opts.interval);
             const unsubscribe = this.api.stream.market.on('data', ({ candle }) => {
-                if (candle) {
+                // Tinkoff each new subscribtion affect others and call all subscribed callbacks, because all data used one connection
+                // This mean we nedd to validate figi for each candle
+                if (candle && candle.figi === figi) {
                     handler(transformTinkoffCandle(candle));
                 }
             });
