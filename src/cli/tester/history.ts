@@ -112,7 +112,6 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     // TODO: How to do this for another brokers? (known days start and end)
     if (broker === 'binance') {
         strictSequenceAssert(interval, result);
-        console.log('VALID!');
     }
 
     return result;
