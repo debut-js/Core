@@ -25,11 +25,19 @@ export function createRequestBinance(instrumentType: InstrumentType) {
         const frameMs = date.intervalToMs(interval);
         const frameMin = frameMs / 1000 / 60;
         const binanceFrame = convertTimeFrame(interval);
+        const isSameDay = date.isSameDay(new Date(from), new Date());
 
         if (frameMin <= 60) {
             const middleDay = from + 12 * 60 * 60 * 1000 - 1000;
-            // Eclude last candle from timeframe
-            to = to - frameMs;
+
+            /**
+             * XXX Sometimes history crossing and this triggered validation asserts
+             * history from should exclude 3:00 first of next day candles, exclude last day (current day) because
+             * current day still not completed
+             */
+            if (!isSameDay) {
+                to = to - frameMs;
+            }
 
             const urlPart1 = `${apiBase}/klines?symbol=${ticker}&interval=${binanceFrame}&startTime=${from}&endTime=${middleDay}&limit=720`;
             const urlPart2 = `${apiBase}/klines?symbol=${ticker}&interval=${binanceFrame}&startTime=${middleDay}&endTime=${to}&limit=720`;

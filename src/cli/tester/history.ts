@@ -90,8 +90,10 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
             progress?.update(progressValue);
             from = to;
         } catch (e: unknown | DebutError) {
-            if (e instanceof DebutError && !progress) {
-                console.log(e);
+            if (e instanceof DebutError) {
+                progress.stop();
+
+                throw e;
             }
 
             tries++;
@@ -105,6 +107,13 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
 
     progress?.update(days);
     progress?.stop();
+
+    // Connection for days days should be validated
+    // TODO: How to do this for another brokers? (known days start and end)
+    if (broker === 'binance') {
+        strictSequenceAssert(interval, result);
+        console.log('VALID!');
+    }
 
     return result;
 }
@@ -134,18 +143,55 @@ async function createRequest(
         );
     }
 
+    let candles: Candle[] = [];
+
     if (historyFile) {
-        return Promise.resolve(JSON.parse(historyFile));
+        candles = JSON.parse(historyFile);
+    } else {
+        candles = await requestFn(from, to, ticker, interval);
+
+        if (!date.isSameDay(new Date(), new Date(from))) {
+            file.ensureFile(path);
+            file.saveFile(path, candles);
+        }
     }
 
-    const candles = await requestFn(from, to, ticker, interval);
-
-    if (!date.isSameDay(new Date(), new Date(from))) {
-        file.ensureFile(path);
-        file.saveFile(path, candles);
-    }
+    strictSequenceAssert(interval, candles);
 
     return candles;
+}
+
+export function strictSequenceAssert(interval: TimeFrame, candles: Candle[]) {
+    const intervalMs = date.intervalToMs(interval);
+
+    if (!candles.length) {
+        return;
+    }
+
+    for (let i = 0; i < candles.length; i++) {
+        const current = candles[i];
+        const next = candles[i + 1];
+
+        if (next && next.time !== current.time + intervalMs) {
+            console.log(current, next);
+            console.log(new Date(current.time).toLocaleString(), new Date(next.time).toLocaleString());
+            throw new DebutError(
+                ErrorEnvironment.History,
+                'History contains invalid data sequence, please clean history for current ticker if error still exists plesae create github issue',
+            );
+        }
+    }
+}
+
+export function daysConnectionAssert(interval: TimeFrame, lastDayCandle: Candle, nextDayCandle: Candle) {
+    const intervalMs = date.intervalToMs(interval);
+
+    if (lastDayCandle && nextDayCandle && lastDayCandle.time + intervalMs !== nextDayCandle.time) {
+        throw new DebutError(
+            ErrorEnvironment.History,
+            'history days connection is invalid, please clean history for current ticker if error still exists plesae create github issue',
+        );
+    }
 }
 
 async function collectCandles(reqs: Array<Promise<Candle[]>>) {
