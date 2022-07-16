@@ -155,7 +155,10 @@ async function createRequest(
         }
     }
 
-    strictSequenceAssert(interval, candles);
+    // TODO: How to do this for another brokers? (known days start and end)
+    if (broker === 'binance') {
+        strictSequenceAssert(interval, candles);
+    }
 
     return candles;
 }
