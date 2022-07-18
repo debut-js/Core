@@ -90,7 +90,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
             progress?.update(progressValue);
             from = to;
         } catch (e: unknown | DebutError) {
-            if (e instanceof DebutError) {
+            if (e instanceof DebutError && progress) {
                 progress.stop();
 
                 throw e;
@@ -175,8 +175,6 @@ export function strictSequenceAssert(interval: TimeFrame, candles: Candle[]) {
         const next = candles[i + 1];
 
         if (next && next.time !== current.time + intervalMs) {
-            console.log(current, next);
-            console.log(new Date(current.time).toLocaleString(), new Date(next.time).toLocaleString());
             throw new DebutError(
                 ErrorEnvironment.History,
                 'History contains invalid data sequence, please clean history for current ticker if error still exists plesae create github issue',
