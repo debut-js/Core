@@ -139,6 +139,8 @@ export class TinkoffTransport implements BaseTransport {
             this.api.stream.market.watch({ candles: [{ figi, interval }] });
             return () => {
                 this.removeInstrumentFromCache(opts);
+                this.api.stream.market.unwatch({ candles: [{ figi, interval }] });
+
                 unsubscribe();
             };
         } catch (e) {
