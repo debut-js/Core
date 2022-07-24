@@ -23,12 +23,18 @@ export class PluginDriver implements PluginDriverInterface {
         PluginHook.onClose,
         PluginHook.onBeforeTick,
         PluginHook.onTick,
+        PluginHook.onAfterTick,
         PluginHook.onCandle,
         PluginHook.onAfterCandle,
+        PluginHook.onInit,
         PluginHook.onStart,
         PluginHook.onDispose,
         PluginHook.onDepth,
+        PluginHook.onSnapshot,
+        PluginHook.onHydrate,
+        PluginHook.onOrderUpdated,
         PluginHook.onMajorCandle,
+        PluginHook.onMajorTick,
     ];
     private registeredHooks: Partial<Record<PluginHook, Array<Function>>> = {};
 
