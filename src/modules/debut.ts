@@ -250,7 +250,12 @@ export abstract class Debut implements DebutCore {
             return;
         }
 
-        this.updateOrder(closing, 'lots', remainingLots);
+        const changes: Partial<ExecutedOrder> = {
+            lots: remainingLots,
+            executedLots: remainingLots,
+        };
+
+        this.updateOrder(closing, changes);
 
         let order: ExecutedOrder;
 
@@ -431,8 +436,7 @@ export abstract class Debut implements DebutCore {
     /**
      * Update existing order attributes
      */
-    private updateOrder(order: PendingOrder | ExecutedOrder, key: keyof BaseOrder, value: unknown): void {
-        const changes: Partial<BaseOrder> = { [key]: value };
+    private updateOrder(order: PendingOrder | ExecutedOrder, changes: Partial<ExecutedOrder>): void {
         // Mutation update
         Object.assign(order, changes);
 
