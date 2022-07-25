@@ -101,15 +101,10 @@ export class TesterTransport implements BaseTransport {
     private async tickLoop(ticks: Candle[]) {
         let tickIdx = 0;
         let tick = ticks[0];
-        const handlers = Array.from(this.handlers.keys());
 
         while (tick) {
-            let handler = handlers[0];
-            let handlerIdx = 0;
-
-            while (handler) {
+            for (const handler of this.handlers) {
                 await handler(tick);
-                handler = handlers[++handlerIdx];
             }
 
             tick = ticks[++tickIdx];
