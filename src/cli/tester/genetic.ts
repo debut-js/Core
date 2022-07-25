@@ -222,7 +222,10 @@ export class GeneticWrapper {
      */
     private async disposeeWorkerThreads() {
         for (const worker of this.workers) {
-            worker.disconnect();
+            if (worker.isConnected()) {
+                worker.disconnect();
+            }
+
             worker.kill();
         }
     }
