@@ -175,7 +175,7 @@ export function strictSequenceAssert(interval: TimeFrame, candles: Candle[]) {
         const next = candles[i + 1];
 
         if (next && next.time !== current.time + intervalMs) {
-            throw new DebutError(
+            console.warn(
                 ErrorEnvironment.History,
                 'History contains invalid data sequence, please clean history for current ticker if error still exists plesae create github issue',
             );
