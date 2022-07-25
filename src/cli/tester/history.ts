@@ -110,9 +110,9 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
 
     // Connection for days days should be validated
     // TODO: How to do this for another brokers? (known days start and end)
-    if (broker === 'binance') {
-        strictSequenceAssert(interval, result);
-    }
+    // if (broker === 'binance') {
+    //     strictSequenceAssert(interval, result);
+    // }
 
     return result;
 }
