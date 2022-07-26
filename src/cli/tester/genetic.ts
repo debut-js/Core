@@ -374,14 +374,17 @@ export class GeneticWrapper {
             await this.pureGenetic(backtest, true);
 
             // At last segment estimate all entities at full time and generate report
-            if (lastSegment) {
-                console.log('Walk forward final estimation started');
-                await this.test(ticks);
-            } else {
-                console.log('Walk forward test started');
-                await this.test(walkTest);
+            // if (lastSegment) {
+            //     console.log('Walk forward final estimation started');
+            //     await this.test(ticks);
+            // } else {
+            console.log('Walk forward test started');
+            await this.test(walkTest);
+
+            if (!lastSegment) {
                 await this.genetic.breed();
             }
+            // }
         }
     }
 
