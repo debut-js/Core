@@ -92,6 +92,7 @@ export class GeneticWrapper {
             days,
             gapDays,
             instrumentType,
+            noProgress: true,
         });
 
         if (ticksFilter) {
