@@ -40,6 +40,10 @@ export class TinkoffTransport implements BaseTransport {
         }
 
         this.api = new TinkoffInvestApi({ token, appName: 'debut' });
+
+        // Debug info
+        this.api.stream.market.on('error', (error) => console.log('stream error', error));
+        this.api.stream.market.on('close', (error) => console.log('stream closed, reason:', error));
     }
 
     public async getInstrument(opts: DebutOptions) {
@@ -129,18 +133,17 @@ export class TinkoffTransport implements BaseTransport {
         try {
             const { figi } = await this.getInstrument(opts);
             const interval = transformTimeFrameToSubscriptionsInterval(opts.interval);
-            const unsubscribe = this.api.stream.market.on('data', ({ candle }) => {
+            const request = { instruments: [{ figi, interval }], waitingClose: false };
+            const unsubscribe = await this.api.stream.market.candles(request, (candle) => {
                 // Tinkoff each new subscribtion affect others and call all subscribed callbacks, because all data used one connection
                 // This mean we nedd to validate figi for each candle
                 if (candle && candle.figi === figi) {
                     handler(transformTinkoffCandle(candle));
                 }
             });
-            this.api.stream.market.watch({ candles: [{ figi, interval }] });
+
             return () => {
                 this.removeInstrumentFromCache(opts);
-                this.api.stream.market.unwatch({ candles: [{ figi, interval }] });
-
                 unsubscribe();
             };
         } catch (e) {
@@ -151,16 +154,17 @@ export class TinkoffTransport implements BaseTransport {
     public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler) {
         try {
             const { figi } = await this.getInstrument(opts);
-            const unsubscribe = this.api.stream.market.on('data', ({ orderbook }) => {
+            // See: https://github.com/debut-js/Core/pull/20#discussion_r890268385
+            const MAX_DEPTH = 50;
+            const request = { instruments: [{ figi, depth: MAX_DEPTH }] };
+            const unsubscribe = await this.api.stream.market.orderBook(request, (orderbook) => {
                 if (orderbook && orderbook.figi === figi) {
                     const bids = orderbook.bids.map(transformTinkoffStreamOrder);
                     const asks = orderbook.asks.map(transformTinkoffStreamOrder);
                     handler({ bids, asks });
                 }
             });
-            // See: https://github.com/debut-js/Core/pull/20#discussion_r890268385
-            const MAX_DEPTH = 50;
-            this.api.stream.market.watch({ orderBook: [{ figi, depth: MAX_DEPTH }] });
+
             return () => {
                 this.removeInstrumentFromCache(opts);
                 unsubscribe();
