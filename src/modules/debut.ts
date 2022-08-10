@@ -50,7 +50,7 @@ export abstract class Debut implements DebutCore {
         this.validateConfig();
 
         // If method exists
-        if (this.onDepth.toString() !== 'async onDepth(e){}') {
+        if (!this.onDepth.toString().match(/(async\ onDepth\(\w+\)\ \{\ \})/)) {
             this.orderBookSubscribtion = this.transport.subscribeOrderBook(this.opts, this.orderbookHandler);
         }
     }
