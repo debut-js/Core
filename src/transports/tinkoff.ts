@@ -115,12 +115,6 @@ export class TinkoffTransport implements BaseTransport {
                 },
             };
 
-            // TODO: prices hack does not working yet!
-            // const prices = await this.updateOrderPrices(order);
-
-            // order = { ...order, ...prices };
-            // order.time = tickTime;
-
             return executedOrder;
         } catch (e) {
             // todo: support retries (separate fn?)
@@ -135,11 +129,7 @@ export class TinkoffTransport implements BaseTransport {
             const interval = transformTimeFrameToSubscriptionsInterval(opts.interval);
             const request = { instruments: [{ figi, interval }], waitingClose: false };
             const unsubscribe = await this.api.stream.market.candles(request, (candle) => {
-                // Tinkoff each new subscribtion affect others and call all subscribed callbacks, because all data used one connection
-                // This mean we nedd to validate figi for each candle
-                if (candle && candle.figi === figi) {
-                    handler(transformTinkoffCandle(candle));
-                }
+                handler(transformTinkoffCandle(candle));
             });
 
             return () => {
@@ -158,11 +148,10 @@ export class TinkoffTransport implements BaseTransport {
             const MAX_DEPTH = 50;
             const request = { instruments: [{ figi, depth: MAX_DEPTH }] };
             const unsubscribe = await this.api.stream.market.orderBook(request, (orderbook) => {
-                if (orderbook && orderbook.figi === figi) {
-                    const bids = orderbook.bids.map(transformTinkoffStreamOrder);
-                    const asks = orderbook.asks.map(transformTinkoffStreamOrder);
-                    handler({ bids, asks });
-                }
+                const bids = orderbook.bids.map(transformTinkoffStreamOrder);
+                const asks = orderbook.asks.map(transformTinkoffStreamOrder);
+
+                handler({ bids, asks });
             });
 
             return () => {
