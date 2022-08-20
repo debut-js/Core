@@ -20,7 +20,8 @@ let schema: cli.BotData | null;
     try {
         schema = await cli.getBotData(bot);
     } catch (e) {
-        throw new DebutError(ErrorEnvironment.Tester, `${e}`);
+        console.log(new DebutError(ErrorEnvironment.Tester, `${e}`));
+        return;
     }
 
     if (!schema) {
