@@ -28,7 +28,7 @@
         "@scarf/scarf": "^1.1.1",
         "@types/ws": "^8.5.3",
         "async-genetic": "^1.6.8",
-        "binance-api-node": "0.11.43",
+        "binance-api-node": "0.11.29",
         "cli-progress": "^3.11.2",
         "nice-grpc": "^2.0.0",
         "node-fetch": "^3.2.10",
