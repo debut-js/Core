@@ -6,7 +6,7 @@
 [![Telegram stocks trading orders stream](https://badgen.net/badge/tg/stocks:stream/cyan?icon=telegram)](https://t.me/debutjs2)
 
 <p align="center">
-  <img src="./.github/logo-small.png" />
+  <img src="https://github.com/debut-js/Core/raw/master/.github/assets/logo-small.png" />
 </p>
 
 # Debut - Trading Framework
@@ -17,7 +17,7 @@ Debut is based on the architecture of the core and add-on plugins that allow you
 
 ## Features
 
-<p align="center"><img src="./assets/preview.gif" width="800"></p>
+<p align="center"><img src="https://github.com/debut-js/Core/raw/master/.github/preview.gif" width="800"></p>
 
 - Multiple exchanges API
 - Backtesting with historical data
@@ -63,7 +63,7 @@ The project has two starting trading strategies "For example" how to work with t
 
 ## [CCI Dynamic](/src/strategies/cci-dynamic/) strategy report for last 100 days
 
-<p align="center"> <img src="https://github.com/debut-js/Core/raw/master/.github/assets/report.png" width="800"> </p>
+<p align="center"> <img src="/.github/report.png" width="800"> </p>
 
 **Report analysis**
 
