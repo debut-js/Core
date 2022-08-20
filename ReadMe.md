@@ -295,4 +295,4 @@ npm run compile && node ./out/tools/buysellratio/index.js
 ```
 
 ### Screenshot
-![preview](.github/workflows/bsratio.png)
+![preview](./.github/workflows/bsratio.png)
