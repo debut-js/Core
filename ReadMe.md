@@ -63,7 +63,7 @@ The project has two starting trading strategies "For example" how to work with t
 
 ## [CCI Dynamic](/src/strategies/cci-dynamic/) strategy report for last 100 days
 
-<p align="center"> <img src="/.github/report.png" width="800"> </p>
+<p align="center"> <img src="https://github.com/debut-js/Core/raw/master/.github/assets/report.png" width="800"> </p>
 
 **Report analysis**
 
