@@ -9,7 +9,7 @@ import {
 import { placeSandboxOrder } from './utils';
 
 export class Transaction implements TransactionInterface {
-    private orders: PendingOrder[] = [];
+    private pendingOrders: PendingOrder[] = [];
     private reject: Function;
     private resolve: Function;
     private promise: Promise<ExecutedOrder[]>;
@@ -23,13 +23,13 @@ export class Transaction implements TransactionInterface {
     }
 
     public canAppendOrder(order: PendingOrder) {
-        return !this.orders.length || this.orders[0].type === order.type;
+        return !this.pendingOrders.length || this.pendingOrders[0].type === order.type;
     }
 
     public async add(order: PendingOrder) {
         this.lastOrder = order;
 
-        const idx = this.orders.push(order) - 1;
+        const idx = this.pendingOrders.push(order) - 1;
         const orders = await this.promise;
 
         return orders[idx];
@@ -38,20 +38,23 @@ export class Transaction implements TransactionInterface {
     public async execute(): Promise<ExecutedOrder[]> {
         let lots: number = 0;
         let type: OrderType;
-        const length = this.orders.length;
+        const length = this.pendingOrders.length;
         const virtualOrders: ExecutedOrder[] = [];
+        const transaction: Array<string | number> = [];
 
         for (let i = 0; i < length; i++) {
-            const closing = this.orders[i];
+            const pending = this.pendingOrders[i];
 
-            if ((type && closing.type !== type) || !closing.close) {
+            if ((type && pending.type !== type) || !pending.close) {
                 this.reject('Incorrect transaction orders, must be closed order and same type');
             }
 
-            lots += closing.lots;
-            type = closing.type;
+            lots += pending.lots;
+            type = pending.type;
 
-            const executed = placeSandboxOrder(closing, this.opts);
+            transaction.push(pending.openId);
+
+            const executed = placeSandboxOrder(pending, this.opts);
             virtualOrders.push(executed);
         }
 
@@ -63,6 +66,7 @@ export class Transaction implements TransactionInterface {
                 ...this.lastOrder,
                 openId: 'ALL',
                 lots: this.transport.prepareLots(lots, instrument.id),
+                transaction,
             };
             const marketOrder = await this.transport.placeOrder(collapsedOrder, this.opts);
 
