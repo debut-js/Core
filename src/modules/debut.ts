@@ -274,6 +274,7 @@ export abstract class Debut implements DebutCore {
      * To make a smooth transition to real deals
      */
     public async learn(days = 7) {
+        await this.pluginDriver.asyncReduce(PluginHook.onLearn, days);
         this.instrument = await this.transport.getInstrument(this.opts);
         this.learning = true;
 
