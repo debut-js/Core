@@ -28,6 +28,7 @@ export class PluginDriver implements PluginDriverInterface {
         PluginHook.onAfterCandle,
         PluginHook.onInit,
         PluginHook.onStart,
+        PluginHook.onLearn,
         PluginHook.onDispose,
         PluginHook.onDepth,
         PluginHook.onSnapshot,
