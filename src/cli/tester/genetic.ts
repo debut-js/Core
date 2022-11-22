@@ -213,6 +213,12 @@ export class GeneticWrapper {
 
         cluster.on('exit', (worker, code, signal) => {
             console.log(`worker ${worker.process.pid} died`);
+
+            const idx = this.workers.findIndex((item) => item === worker);
+
+            if (idx !== -1) {
+                this.workers.splice(idx, 1);
+            }
         });
 
         return Promise.all(promises);
@@ -221,9 +227,9 @@ export class GeneticWrapper {
     /**
      * Stop all multi processing threads
      */
-    private async disposeeWorkerThreads() {
+    private disposeeWorkerThreads() {
         for (const worker of this.workers) {
-            if (worker.isConnected()) {
+            if (worker.isConnected() && worker.process.channel?.hasRef) {
                 worker.disconnect();
             }
 
