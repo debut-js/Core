@@ -17,7 +17,7 @@ import type { ThreadMessage } from './genetic-worker';
 
 const numCPUs = cpus().length;
 // MRI - Max Recursion Iterations
-const MRI = 10;
+const MRI = 100;
 
 /**
  * Genetic allorithms class, it's wrapper for Debut strategies optimize
@@ -227,7 +227,9 @@ export class GeneticWrapper {
                 worker.disconnect();
             }
 
-            worker.kill();
+            if (!worker.isDead()) {
+                worker.kill();
+            }
         }
     }
 
