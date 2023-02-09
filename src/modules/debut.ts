@@ -134,14 +134,14 @@ export abstract class Debut implements DebutCore {
         const orderList = [...this.orders];
 
         if (!collapse || len === 1) {
-            const closed: Array<ExecutedOrder> = [];
+            const closed: Array<Promise<ExecutedOrder>> = [];
             // Because close order mutate this.orders array, make shallow immutable for loop
 
             for (let i = 0; i < len; i++) {
-                closed.push(await this.closeOrder(orderList[i]));
+                closed.push(this.closeOrder(orderList[i]));
             }
 
-            return closed;
+            return Promise.all(closed);
         }
 
         this.transaction = new Transaction(this.opts, this.transport);
