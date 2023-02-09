@@ -125,7 +125,7 @@ export abstract class Debut implements DebutCore {
      * Close all current positions
      * @param collapse all orders to single, beta
      */
-    public async closeAll(collapse = false) {
+    public async closeAll(collapse = false, filter?: (order: ExecutedOrder | PendingOrder) => true) {
         if (!this.orderCounter) {
             return;
         }
@@ -138,7 +138,11 @@ export abstract class Debut implements DebutCore {
             // Because close order mutate this.orders array, make shallow immutable for loop
 
             for (let i = 0; i < len; i++) {
-                closed.push(this.closeOrder(orderList[i]));
+                const order = orderList[i];
+
+                if (!filter || filter(order)) {
+                    closed.push(this.closeOrder(order));
+                }
             }
 
             return Promise.all(closed);
@@ -147,7 +151,11 @@ export abstract class Debut implements DebutCore {
         this.transaction = new Transaction(this.opts, this.transport);
 
         for (let i = 0; i < len; i++) {
-            this.closeOrder(orderList[i]);
+            const order = orderList[i];
+
+            if (!filter || filter(order)) {
+                this.closeOrder(order);
+            }
         }
 
         const orders = await this.transaction.execute();
