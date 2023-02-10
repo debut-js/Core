@@ -125,7 +125,7 @@ export abstract class Debut implements DebutCore {
      * Close all current positions
      * @param collapse all orders to single, beta
      */
-    public async closeAll(collapse = false, filter?: (order: ExecutedOrder | PendingOrder) => true) {
+    public async closeAll(collapse = false, filter?: (order: ExecutedOrder | PendingOrder) => boolean) {
         if (!this.orderCounter) {
             return;
         }
