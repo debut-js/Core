@@ -312,7 +312,7 @@ export class BinanceTransport implements BaseTransport {
         }
 
         const isInteger = instrument.lotPrecision === 0;
-        let resultLots = isInteger ? Math.ceil(lots) : math.toFixed(lots, instrument.lotPrecision);
+        let resultLots = isInteger ? Math.round(lots) : math.toFixed(lots, instrument.lotPrecision);
         const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(instrument.minQuantity);
 
         if (Math.abs(resultLots - lots) > lotsRedunantValue) {
@@ -323,6 +323,10 @@ export class BinanceTransport implements BaseTransport {
             while (Math.abs(resultLots - lots) >= lotsRedunantValue) {
                 resultLots = math.toFixed(resultLots + lotsRedunantValue * rev, instrument.lotPrecision);
             }
+        }
+
+        if (resultLots === 0) {
+            resultLots = lotsRedunantValue;
         }
 
         return resultLots;
