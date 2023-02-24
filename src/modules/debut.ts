@@ -418,6 +418,7 @@ export abstract class Debut implements DebutCore {
         const pendingDetails: Partial<PendingOrder> = {
             lots: closing.lots,
             openPrice: closing.price,
+            openTime: closing.time,
             openId: this.isExecuted(closing) ? closing.orderId : closing.cid,
             sandbox: closing.sandbox,
             learning: closing.learning,
