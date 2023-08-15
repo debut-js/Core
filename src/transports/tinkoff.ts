@@ -108,7 +108,7 @@ export class TinkoffTransport implements BaseTransport {
                 ...order,
                 orderId: res.orderId,
                 executedLots: res.lotsExecuted,
-                lots: res.lotsRequested,
+                lots: res.lotsExecuted,
                 price: this.api.helpers.toNumber(res.executedOrderPrice),
                 commission: {
                     value: Helpers.toNumber(res.initialCommission),
