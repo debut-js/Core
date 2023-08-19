@@ -32,7 +32,7 @@
         "cli-progress": "^3.11.2",
         "nice-grpc": "^2.0.0",
         "node-fetch": "^3.2.10",
-        "tinkoff-invest-api": "^5.0.0-2"
+        "tinkoff-invest-api": "^5.0.0"
     },
     "devDependencies": {
         "@debut/types": "^4.0.5",
