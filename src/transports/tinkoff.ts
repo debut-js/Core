@@ -1,4 +1,4 @@
-import { debug } from '@debut/plugin-utils';
+import { debug, math, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
@@ -89,7 +89,7 @@ export class TinkoffTransport implements BaseTransport {
             return placeSandboxOrder(order, opts);
         }
 
-        const { figi } = await this.getInstrument(opts);
+        const instrument = await this.getInstrument(opts);
 
         try {
             const direction =
@@ -97,7 +97,7 @@ export class TinkoffTransport implements BaseTransport {
 
             const res = await this.api.orders.postOrder({
                 accountId: this.accountId,
-                figi,
+                figi: instrument.figi,
                 quantity: lots,
                 direction,
                 orderType: TinkoffOrderType.ORDER_TYPE_MARKET,
@@ -117,10 +117,36 @@ export class TinkoffTransport implements BaseTransport {
             };
 
             return executedOrder;
-        } catch (e) {
+        } catch (e: unknown | DebutError | TinkoffApiError) {
             // todo: support retries (separate fn?)
             debug.logDebug(' retry failure with order', order);
-            throw new DebutError(ErrorEnvironment.Transport, e.payload?.message || e.message);
+
+            if (e instanceof DebutError) {
+                throw e;
+            }
+
+            if (e instanceof TinkoffApiError) {
+                // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
+                // тк блокировка длится в среднем 30 минут
+                if (order.retries <= 10 && allowRetry(e)) {
+                    order.retries++;
+                    const delayInterval = math.clamp(Math.pow(3 + Math.random(), order.retries) * 1000, 3000, 300000);
+                    // Randomize delay
+                    const timeout = Math.floor(delayInterval + 60000 * Math.random());
+
+                    await promise.sleep(timeout);
+
+                    // Проверяем, что подписка все еще актуальна
+                    if (this.instruments.has(instrument.id)) {
+                        console.log('Retry after error', e);
+                        return this.placeOrder(order, opts);
+                    }
+
+                    throw new DebutError(ErrorEnvironment.Transport, e.message);
+                }
+            }
+
+            throw new DebutError(ErrorEnvironment.Transport, String(e));
         }
     }
 
@@ -230,4 +256,8 @@ function transformTinkoffStreamOrder(order: TinkoffStreamOrder): DepthOrder {
         price: Helpers.toNumber(order.price),
         qty: order.quantity,
     };
+}
+
+function allowRetry(e: TinkoffApiError) {
+    return e.code === Status.INTERNAL || e.code === Status.UNKNOWN;
 }
