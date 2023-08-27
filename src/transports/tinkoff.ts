@@ -132,15 +132,17 @@ export class TinkoffTransport implements BaseTransport {
 
                     debug.logDebug('Retry for order attempt', order);
 
-                    const state = await this.api.orders.getOrderState({
-                        orderId: clientOrderId,
-                        accountId: this.accountId,
-                    });
+                    try {
+                        const state = await this.api.orders.getOrderState({
+                            orderId: clientOrderId,
+                            accountId: this.accountId,
+                        });
 
-                    if (state.executionReportStatus == OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL) {
-                        debug.logDebug('Order restored from state:', state);
-                        return { ...order, ...getOrderImportantFields(state) };
-                    }
+                        if (state.executionReportStatus == OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL) {
+                            debug.logDebug('Order restored from state:', state);
+                            return { ...order, ...getOrderImportantFields(state) };
+                        }
+                    } catch (statusError: unknown | TinkoffApiError) {}
 
                     // Проверяем, что подписка все еще актуальна
                     if (this.instruments.has(instrument.id)) {
