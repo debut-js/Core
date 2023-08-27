@@ -21,7 +21,13 @@ import {
     Candle as TinkoffStreamCandle,
     Order as TinkoffStreamOrder,
 } from 'tinkoff-invest-api/cjs/generated/marketdata.js';
-import { OrderDirection, OrderType as TinkoffOrderType } from 'tinkoff-invest-api/cjs/generated/orders.js';
+import {
+    OrderDirection,
+    OrderExecutionReportStatus,
+    OrderState,
+    PostOrderResponse,
+    OrderType as TinkoffOrderType,
+} from 'tinkoff-invest-api/cjs/generated/orders.js';
 import { Status } from 'nice-grpc';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
@@ -81,8 +87,8 @@ export class TinkoffTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const { type, lots, sandbox, learning } = order;
-
+        const { type, lots, sandbox, learning, cid } = order;
+        const clientOrderId = String(cid);
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
@@ -101,25 +107,13 @@ export class TinkoffTransport implements BaseTransport {
                 quantity: lots,
                 direction,
                 orderType: TinkoffOrderType.ORDER_TYPE_MARKET,
-                orderId: Math.random().toString(),
+                orderId: clientOrderId,
             });
 
-            const executedOrder: ExecutedOrder = {
-                ...order,
-                orderId: res.orderId,
-                executedLots: res.lotsExecuted,
-                lots: res.lotsExecuted,
-                price: this.api.helpers.toNumber(res.executedOrderPrice),
-                commission: {
-                    value: Helpers.toNumber(res.initialCommission),
-                    currency: res.initialCommission.currency,
-                },
-            };
-
-            return executedOrder;
+            return { ...order, ...getOrderImportantFields(res) };
         } catch (e: unknown | DebutError | TinkoffApiError) {
             // todo: support retries (separate fn?)
-            debug.logDebug(' retry failure with order', order);
+            debug.logDebug('retry failure with order', order);
 
             if (e instanceof DebutError) {
                 throw e;
@@ -136,11 +130,25 @@ export class TinkoffTransport implements BaseTransport {
 
                     await promise.sleep(timeout);
 
+                    debug.logDebug('Retry for order attempt', order);
+
+                    const state = await this.api.orders.getOrderState({
+                        orderId: clientOrderId,
+                        accountId: this.accountId,
+                    });
+
+                    if (state.executionReportStatus == OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL) {
+                        debug.logDebug('Order restored from state:', state);
+                        return { ...order, ...getOrderImportantFields(state) };
+                    }
+
                     // Проверяем, что подписка все еще актуальна
                     if (this.instruments.has(instrument.id)) {
-                        console.log('Retry after error', e);
+                        debug.logDebug('Retry after error', e);
                         return this.placeOrder(order, opts);
                     }
+
+                    debug.logDebug('Retry failure', order);
 
                     throw new DebutError(ErrorEnvironment.Transport, e.message);
                 }
@@ -260,4 +268,20 @@ function transformTinkoffStreamOrder(order: TinkoffStreamOrder): DepthOrder {
 
 function allowRetry(e: TinkoffApiError) {
     return e.code === Status.INTERNAL || e.code === Status.UNKNOWN;
+}
+
+/**
+ * Most valuable field for trading details in order, how much lots are executed, comission and other trade data
+ */
+function getOrderImportantFields(source: OrderState | PostOrderResponse) {
+    return {
+        orderId: source.orderId,
+        executedLots: source.lotsExecuted,
+        lots: source.lotsExecuted,
+        price: this.api.helpers.toNumber(source.executedOrderPrice),
+        commission: {
+            value: Helpers.toNumber(source.initialCommission),
+            currency: source.initialCommission.currency,
+        },
+    };
 }
