@@ -280,7 +280,7 @@ function getOrderImportantFields(source: OrderState | PostOrderResponse) {
         orderId: source.orderId,
         executedLots: source.lotsExecuted,
         lots: source.lotsExecuted,
-        price: this.api.helpers.toNumber(source.executedOrderPrice),
+        price: Helpers.toNumber(source.executedOrderPrice),
         commission: {
             value: Helpers.toNumber(source.initialCommission),
             currency: source.initialCommission.currency,

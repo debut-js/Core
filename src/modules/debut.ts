@@ -208,6 +208,7 @@ export abstract class Debut implements DebutCore {
         } catch (e) {
             console.warn(this.createCoreError(`${new Date().toISOString()} Order not opened ${e.message}`));
             this.removeOrder(pendingOrder);
+            throw e;
         }
     }
 
