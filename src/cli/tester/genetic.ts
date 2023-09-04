@@ -41,9 +41,8 @@ export class GeneticWrapper {
             populationSize: 100,
             select1: Select.FittestLinear,
             select2: Select.Fittest,
-            fittestNSurvives: 2,
-            mutateProbablity: 0.03,
-            crossoverProbablity: 0.6,
+            mutateProbablity: 0.08,
+            crossoverProbablity: 0.3,
         };
 
         const ilandOptions: IslandGeneticModelOptions<DebutOptions> = {
