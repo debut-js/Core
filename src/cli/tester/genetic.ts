@@ -42,7 +42,7 @@ export class GeneticWrapper {
             select1: Select.FittestLinear,
             select2: Select.RandomLinearRank,
             fittestNSurvives: 2,
-            mutateProbablity: 0.3,
+            mutateProbablity: 0.03,
             crossoverProbablity: 0.6,
         };
 
@@ -154,11 +154,18 @@ export class GeneticWrapper {
      * Mutate configurations (self reproducing with mutations or not, depends on mutation probability)
      */
     private mutate = async (cfg: DebutOptions, i: number = 0) => {
-        this.schemaKeys.forEach((key) => {
+        const length = this.schemaKeys.length - 1;
+        const mutateKeys = new Set<string>();
+
+        for (let i = 0; i <= length; i++) {
+            mutateKeys.add(this.schemaKeys[getRandom(1, length)]);
+        }
+
+        for (const key of mutateKeys.values()) {
             if (key in this.schema) {
                 cfg[key] = getRandomByRange(this.schema[key]);
             }
-        });
+        }
 
         // Prevent recursion calls for validation
         if (i >= MRI || this.options.validateSchema(cfg)) {
@@ -405,6 +412,13 @@ export class GeneticWrapper {
 
         await this.genetic.estimate();
     }
+}
+
+/**
+ * Generate random numbers in a range
+ */
+function getRandom(max: number, min: number) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
 /**
