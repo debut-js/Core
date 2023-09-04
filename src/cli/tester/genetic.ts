@@ -40,7 +40,7 @@ export class GeneticWrapper {
             crossoverFunction: this.crossover, // previously described to produce child solution by combining two parents
             populationSize: 100,
             select1: Select.FittestLinear,
-            select2: Select.RandomLinearRank,
+            select2: Select.Fittest,
             fittestNSurvives: 2,
             mutateProbablity: 0.03,
             crossoverProbablity: 0.6,
