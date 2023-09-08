@@ -287,10 +287,10 @@ function allowRetry(e: TinkoffApiError) {
  * Most valuable field for trading details in order, how much lots are executed, comission and other trade data
  */
 function getOrderImportantFields(source: OrderState | PostOrderResponse) {
-    let lots = source.lotsExecuted;
+    let lots = source.lotsRequested;
 
-    if (source.executionReportStatus !== OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_PARTIALLYFILL) {
-        lots = source.lotsRequested;
+    if (source.executionReportStatus === OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL) {
+        lots = source.lotsExecuted;
     }
 
     return {
