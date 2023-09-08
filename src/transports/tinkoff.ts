@@ -31,6 +31,13 @@ import {
 import { Status } from 'nice-grpc';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
+import { ErrorCodes } from 'binance-api-node';
+
+const GoodStatuses = [
+    OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_NEW,
+    OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL,
+    OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_PARTIALLYFILL,
+];
 
 export class TinkoffTransport implements BaseTransport {
     public api: TinkoffInvestApi;
@@ -110,6 +117,10 @@ export class TinkoffTransport implements BaseTransport {
                 orderId: clientOrderId,
             });
 
+            if (!GoodStatuses.includes(res.executionReportStatus)) {
+                throw new TinkoffApiError('debut.forced.api.tinkoff', Status.UNKNOWN, 'bad status for response');
+            }
+
             return { ...order, ...getOrderImportantFields(res) };
         } catch (e: unknown | DebutError | TinkoffApiError) {
             // todo: support retries (separate fn?)
@@ -138,7 +149,7 @@ export class TinkoffTransport implements BaseTransport {
                             accountId: this.accountId,
                         });
 
-                        if (state.executionReportStatus == OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_FILL) {
+                        if (GoodStatuses.includes(state.executionReportStatus)) {
                             debug.logDebug('Order restored from state:', state);
                             return { ...order, ...getOrderImportantFields(state) };
                         }
@@ -276,10 +287,16 @@ function allowRetry(e: TinkoffApiError) {
  * Most valuable field for trading details in order, how much lots are executed, comission and other trade data
  */
 function getOrderImportantFields(source: OrderState | PostOrderResponse) {
+    let lots = source.lotsExecuted;
+
+    if (source.executionReportStatus !== OrderExecutionReportStatus.EXECUTION_REPORT_STATUS_PARTIALLYFILL) {
+        lots = source.lotsRequested;
+    }
+
     return {
         orderId: source.orderId,
         executedLots: source.lotsExecuted,
-        lots: source.lotsExecuted,
+        lots,
         price: Helpers.toNumber(source.executedOrderPrice),
         commission: {
             value: Helpers.toNumber(source.initialCommission),
