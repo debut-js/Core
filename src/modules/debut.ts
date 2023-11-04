@@ -405,7 +405,7 @@ export abstract class Debut implements DebutCore {
         const { c: price, time } = this.marketTick;
 
         return {
-            cid: ~~(Math.random() * 1e5),
+            cid: this.createClientId(),
             type,
             author: this.getName(),
             price,
@@ -472,6 +472,22 @@ export abstract class Debut implements DebutCore {
 
     private isExecuted(order: PendingOrder | ExecutedOrder): order is ExecutedOrder {
         return 'orderId' in order;
+    }
+
+    /**
+     * UID Generation method
+     */
+    private createClientId() {
+        return this.s4hash() + this.s4hash() + this.s4hash() + '';
+    }
+
+    /**
+     * Atomic hash for partial
+     */
+    private s4hash() {
+        return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
     }
 
     protected async onOrderClosed(order: ExecutedOrder, closing: ExecutedOrder): Promise<void> {}
