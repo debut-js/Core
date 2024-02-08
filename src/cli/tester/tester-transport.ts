@@ -92,6 +92,8 @@ export class TesterTransport implements BaseTransport {
         switch (this.opts.broker) {
             case 'binance':
                 return math.toFixed(lots, 4);
+            case 'bybit':
+                return math.toFixed(lots, 4);
             case 'tinkoff':
             default:
                 return Math.round(lots) || 1;
