@@ -4,3 +4,4 @@ dist
 .idea
 /.vscode
 .tokens.json
+out/*
