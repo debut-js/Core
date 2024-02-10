@@ -1,21 +1,17 @@
 import {
     RestClientV5,
-    OrderSideV5,
     CategoryV5,
     InstrumentInfoResponseV5,
     APIResponseV3WithTime,
-    NewSpotOrder,
     OrderParamsV5,
     OrderResultV5,
     APIResponseV3,
-    GetTransactionLogParamsV5,
-    GetPublicTradingHistoryParamsV5,
     GetAccountHistoricOrdersParamsV5,
     WebsocketClient,
     DefaultLogger,
     WsTopic,
-    WS_KEY_MAP,
-    TickerSpotV5,
+    CategoryCursorListV5,
+    AccountOrderV5,
 } from 'bybit-api';
 import { debug, math, orders, promise } from '@debut/plugin-utils';
 import { DebutError, ErrorEnvironment } from '../modules/error';
@@ -32,7 +28,6 @@ import {
     TimeFrame,
 } from '@debut/types';
 import { placeSandboxOrder } from './utils/utils';
-// import { ExchangeFilter, ExchangeInfoRateLimit } from 'binance-api-node';
 
 export function convertTimeFrame(interval: TimeFrame) {
     switch (interval) {
@@ -53,23 +48,6 @@ export function convertTimeFrame(interval: TimeFrame) {
     }
     throw new DebutError(ErrorEnvironment.Transport, 'Bybit Unsupported interval');
 }
-// 'BaseTransport': subscribeToTick, placeOrder, getInstrument, prepareLots, subscribeOrderBook
-
-// export interface ExchangeInfoRateLimit {
-//     rateLimitType: RateLimitType_LT
-//     interval: RateLimitInterval_LT
-//     intervalNum: number
-//     limit: number
-//   }
-
-// export interface ExchangeInfo {
-//     timezone: string
-//     serverTime: number
-//     rateLimits: ExchangeInfoRateLimit[]
-//     exchangeFilters: ExchangeFilter[]
-//     symbols: Symbol[]
-//   }
-const badStatus = ['CANCELED', 'EXPIRED', 'PENDING_CANCEL', 'REJECTED'];
 
 const logger = {
     ...DefaultLogger,
@@ -98,8 +76,13 @@ export type TickData = {
     wsKey: string;
 };
 
+const ORDER_CATEGORY_SPOT = 'spot';
+const ORDER_TYPE_MARKET = 'Market';
+const ORDER_SIDE_BUY = 'Buy';
+const ORDER_SIDE_SELL = 'Sell';
+const ignoredErrorsList = ['Order quantity exceeded lower limit'];
+
 export class BybitTransport implements BaseTransport {
-    // public api: ReturnType<typeof RestClientV5>;
     public api: RestClientV5;
     public ws: WebsocketClient;
     protected info: APIResponseV3WithTime<InstrumentInfoResponseV5<'spot'>> | undefined;
@@ -109,7 +92,6 @@ export class BybitTransport implements BaseTransport {
         if (!apiKey || !apiSecret) {
             throw new DebutError(ErrorEnvironment.Transport, 'apiKey or apiSecret are incorrect');
         }
-        console.log('bybit-----------------');
 
         // Authenticated client, can make signed calls
         this.api = new RestClientV5({
@@ -127,19 +109,6 @@ export class BybitTransport implements BaseTransport {
             },
             logger,
         );
-
-        // this.ws.on('update', (data) => {
-
-        //     const tick:TickData = data
-        //     // this.handlerAdapter(tick)
-        //     console.log('Сырые данные получены: ', tick);
-        //     // Проверяем, что данные являются свечами
-        //     // if (data.topic === 'kline') {
-        //     //   const candleData = data.data;
-        //     //   this.handlerAdapter
-        //     //   handleCandleData(candleData); // Вызываем обработчик свечей
-        //     // }
-        //   });
 
         this.ws.on('open', (data) => {
             console.log('connection opened open:', data.wsKey);
@@ -159,23 +128,13 @@ export class BybitTransport implements BaseTransport {
     }
 
     public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
-        // const wsTopics: WsTopic[] | WsTopic = ['candle']; // Массив или один топик, в данном случае только 'candle'
-        // const category: CategoryV5 = 'spot'; // Указываем категорию 'spot'
-
         const wsTopic: WsTopic = `kline.${convertTimeFrame(opts.interval)}.${opts.ticker}`;
-        // const wsTopic: WsTopic = `ticketInfo`
-        this.ws.subscribeV5(wsTopic, 'spot');
+        this.ws.subscribeV5(wsTopic, ORDER_CATEGORY_SPOT);
         this.ws.on('update', this.handlerAdapter(handler));
-
-        // this.ws.subscribeV5('candle', 'spot');
-
-        // wsTopics: WsTopic[] | WsTopic,
-        // category: CategoryV5,
-        // isPrivateTopic?: boolean,
 
         return () => {
             this.instruments.delete(this.getInstrumentId(opts));
-            this.ws.unsubscribeV5(wsTopic, 'spot');
+            this.ws.unsubscribeV5(wsTopic, ORDER_CATEGORY_SPOT);
         };
     }
 
@@ -199,6 +158,16 @@ export class BybitTransport implements BaseTransport {
         return `${opts.ticker}:${opts.instrumentType}`;
     }
 
+    private canRetry(e: Error) {
+        for (const ignoreText of ignoredErrorsList) {
+            if (e.message.includes(ignoreText)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public async getInstrument(opts: DebutOptions) {
         const { instrumentType, ticker } = opts;
         // Allow trade futures and non futures contracrs at same time
@@ -210,20 +179,9 @@ export class BybitTransport implements BaseTransport {
 
         let info: APIResponseV3WithTime<InstrumentInfoResponseV5<'spot'>> | undefined;
 
-        // const category: CategoryV5 = "spot";
+        info = this.info = this.info || (await this.api.getInstrumentsInfo({ category: ORDER_CATEGORY_SPOT }));
 
-        // const params = {
-        //     category
-        // };
-
-        // if (instrumentType === 'FUTURES') {
-        //     info = this.futuresInfo = this.futuresInfo || (await this.api.futuresExchangeInfo());
-        //     this.hedgeMode = (await this.api.futuresPositionMode()).dualSidePosition;
-        // } else {
-        info = this.info = this.info || (await this.api.getInstrumentsInfo({ category: 'spot' }));
-        // }
-
-        const instrument = info.result.list.find((item) => item.symbol === ticker);
+        const instrument = info?.result?.list.find((item) => item.symbol === ticker);
 
         if (!instrument) {
             throw new DebutError(ErrorEnvironment.Transport, 'Unknown instrument');
@@ -236,20 +194,6 @@ export class BybitTransport implements BaseTransport {
             minQuantity = +instrument.lotSizeFilter.minOrderQty;
         }
 
-        // for (const filter of instrument.filters) {
-        //     if (filter.filterType === 'LOT_SIZE') {
-        //         minQuantity = Number(filter.minQty);
-        //     } else if (filter.filterType === 'MIN_NOTIONAL') {
-        //         // @ts-ignore
-        //         minNotional = Number(filter.minNotional) || Number(filter.notional);
-        //     }
-
-        //     if (minQuantity && minNotional) {
-        //         break;
-        //     }
-        // }
-
-        // 0.0000100 -> 0.00001
         const lotPrecision = minQuantity === 1 ? 0 : math.getPrecision(minQuantity);
 
         const data: Instrument = {
@@ -311,7 +255,7 @@ export class BybitTransport implements BaseTransport {
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning } = order;
-        const instrument = await this.getInstrument(opts);
+        const instrument: Instrument = await this.getInstrument(opts);
         const { instrumentType, currency } = opts;
         const { id, ticker } = instrument;
         order.retries = order.retries || 0;
@@ -319,56 +263,31 @@ export class BybitTransport implements BaseTransport {
         if (sandbox || learning) {
             return placeSandboxOrder(order, opts);
         }
-        const feeRate = await this.api.getFeeRate({ category: 'spot', symbol: ticker });
+        const feeRate = await this.api.getFeeRate({ category: ORDER_CATEGORY_SPOT, symbol: ticker });
         let takerFee = 0;
         if (feeRate?.result?.list?.length) {
             takerFee = +feeRate.result.list[0].takerFeeRate;
         }
 
         const base: OrderParamsV5 = {
-            category: 'spot',
-            orderType: 'Market',
-            qty: type === 'BUY' ? String((lots * order.price).toFixed(5)) : String((lots - lots * takerFee).toFixed(5)),
-            side: type === OrderType.BUY ? 'Buy' : 'Sell',
+            category: ORDER_CATEGORY_SPOT,
+            orderType: ORDER_TYPE_MARKET,
+            /*
+                The currency for buying and selling is different. For more details, please refer to this
+                https://bybit-exchange.github.io/docs/v5/order/create-order#request-parameters
+            */
+            qty:
+                type === OrderType.BUY
+                    ? String((lots * order.price).toFixed(5))
+                    : String((lots - lots * takerFee).toFixed(5)),
+            side: type === OrderType.BUY ? ORDER_SIDE_BUY : ORDER_SIDE_SELL,
             symbol: ticker,
         };
 
         let res: APIResponseV3<OrderResultV5> & { time: number };
-        // Only network condition should be try catch wrapped and retried, for prevent network retries when error throws from JS error
 
         try {
-            // switch (instrumentType) {
-            // case 'FUTURES':
-            //     let positionSide = PositionSide.BOTH;
-
-            //     if (this.hedgeMode) {
-            //         positionSide = type === OrderType.BUY ? PositionSide.LONG : PositionSide.SHORT;
-
-            //         if (order.close) {
-            //             positionSide = type === OrderType.BUY ? PositionSide.SHORT : PositionSide.LONG;
-            //         }
-            //     }
-
-            //     const futuresPayload: NewFuturesOrder = {
-            //         ...base,
-            //         positionSide,
-            //         newOrderRespType: NewOrderRespType.RESULT,
-            //     };
-
-            //     res = await this.api.futuresOrder(futuresPayload);
-            //     break;
-            // case 'MARGIN':
-            //     const marginPayload: NewOrderMargin = {
-            //         ...base,
-            //         sideEffectType: order.close ? SideEffectType.AUTO_REPAY : SideEffectType.MARGIN_BUY,
-            //     };
-
-            //     res = await this.api.marginOrder(marginPayload);
-            //     break;
-            // default:
             res = await this.api.submitOrder(base);
-            // break;
-            // }
 
             if (res.retCode !== 0) {
                 debug.logDebug('error order place', res);
@@ -376,7 +295,7 @@ export class BybitTransport implements BaseTransport {
                 throw res;
             }
         } catch (e) {
-            if (order.retries <= 10 /* && this.canRetry(e)*/) {
+            if (order.retries <= 10 && this.canRetry(e)) {
                 debug.logDebug('error order place', e);
                 order.retries++;
                 // 10 ретраев чтобы точно попасть в период блокировки биржи изза скачков цены на 30 минут
@@ -401,17 +320,18 @@ export class BybitTransport implements BaseTransport {
             debug.logDebug('retry success');
         }
 
-        // const precision = math.getPrecision(order.price);
-
-        // const ob = await this.api.getOrderbook({category: 'spot', symbol: ticker, limit:10});
-        // console.log(ob)
-
         // avg trade price
         let feeAmount = 0;
         let executedLots = 0;
         let price = 0;
 
-        const historyRes = await this.api.getHistoricOrders({ category: 'spot', orderId: res.result.orderId });
+        const params: GetAccountHistoricOrdersParamsV5 = {
+            category: ORDER_CATEGORY_SPOT,
+            orderId: res.result.orderId,
+        };
+
+        const historyRes: APIResponseV3WithTime<CategoryCursorListV5<AccountOrderV5[], CategoryV5>> =
+            await this.api.getHistoricOrders(params);
         if (historyRes?.result?.list?.length) {
             const { avgPrice, cumExecFee, cumExecQty } = historyRes.result.list[0];
             price = +avgPrice;
