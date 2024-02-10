@@ -32,19 +32,17 @@ import { placeSandboxOrder } from './utils/utils';
 export function convertTimeFrame(interval: TimeFrame) {
     switch (interval) {
         case '1min':
-            return 1;
+            return '1';
         case '5min':
-            return 5;
+            return '5';
         case '15min':
-            return 15;
+            return '15';
         case '30min':
-            return 30;
+            return '30';
         case '1h':
-            return 60;
+            return '60';
         case '4h':
-            return 240;
-        case 'day':
-            return 14400;
+            return '240';
     }
     throw new DebutError(ErrorEnvironment.Transport, 'Bybit Unsupported interval');
 }
@@ -80,7 +78,15 @@ const ORDER_CATEGORY_SPOT = 'spot';
 const ORDER_TYPE_MARKET = 'Market';
 const ORDER_SIDE_BUY = 'Buy';
 const ORDER_SIDE_SELL = 'Sell';
-const ignoredErrorsList = ['Order quantity exceeded lower limit'];
+
+// Rewrite as code.
+// https://bybit-exchange.github.io/docs/v5/error
+const ignoredErrorsList = [
+    'Order quantity exceeded lower limit',
+    'You are not authorized to execute this request',
+    'Invalid API-key, IP, or permissions for action',
+    'Compliance rules triggered',
+];
 
 export class BybitTransport implements BaseTransport {
     public api: RestClientV5;
@@ -88,7 +94,7 @@ export class BybitTransport implements BaseTransport {
     protected info: APIResponseV3WithTime<InstrumentInfoResponseV5<'spot'>> | undefined;
     protected instruments: Map<string, Instrument> = new Map();
 
-    constructor(apiKey: string, apiSecret: string) {
+    constructor(apiKey: string, apiSecret: string, testMode: number | string = 0) {
         if (!apiKey || !apiSecret) {
             throw new DebutError(ErrorEnvironment.Transport, 'apiKey or apiSecret are incorrect');
         }
@@ -97,7 +103,7 @@ export class BybitTransport implements BaseTransport {
         this.api = new RestClientV5({
             key: apiKey,
             secret: apiSecret,
-            testnet: true,
+            testnet: !!Number(testMode),
         });
 
         this.ws = new WebsocketClient(
