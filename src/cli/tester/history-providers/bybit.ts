@@ -48,25 +48,18 @@ export function createRequestBybit(instrumentType: InstrumentType) {
 
             const urlPart1 = `${apiBase}/market/kline?category=spot&symbol=${ticker}&interval=${binanceFrame}&start=${from}&end=${middleDay}&limit=720`;
             const urlPart2 = `${apiBase}/market/kline?category=spot&symbol=${ticker}&interval=${binanceFrame}&start=${middleDay}&end=${to}&limit=720`;
-            const req1: GetKlineResponseType = await fetch(urlPart1).then((res) => res.json());
 
-            const req2: GetKlineResponseType =
-                middleDay < to ? await fetch(urlPart2).then((res) => res.json()) : Promise.resolve([]);
+            const [req1, req2] = await Promise.all([
+                fetch(urlPart1).then((res) => res.json()),
+                middleDay < to ? fetch(urlPart2).then((res) => res.json()) : Promise.resolve({ result: { list: [] } }),
+            ]);
 
-            let candles1: [] | OHLCVKlineV5[] = [];
-            let candles2: [] | OHLCVKlineV5[] = [];
-
-            if (req1?.result?.list?.length) {
-                candles1 = req1.result.list.sort((a: OHLCVKlineV5, b: OHLCVKlineV5) => +a[0] - +b[0]);
-            }
-
-            if (req2?.result?.list?.length) {
-                candles2 = req2.result.list.sort((a: OHLCVKlineV5, b: OHLCVKlineV5) => +a[0] - +b[0]);
-            }
-
-            if (!Array.isArray(candles2) || !Array.isArray(candles1)) {
-                throw new DebutError(ErrorEnvironment.History, candles1['msg'] || candles2['msg']);
-            }
+            const candles1: OHLCVKlineV5[] = req1?.result?.list?.length
+                ? req1.result.list.sort((a: OHLCVKlineV5, b: OHLCVKlineV5) => +a[0] - +b[0])
+                : [];
+            const candles2: OHLCVKlineV5[] = req2?.result?.list?.length
+                ? req2.result.list.sort((a: OHLCVKlineV5, b: OHLCVKlineV5) => +a[0] - +b[0])
+                : [];
 
             return convertBybitTicks([...candles1, ...candles2]);
         } else {

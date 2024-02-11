@@ -111,7 +111,7 @@ export class BybitTransport implements BaseTransport {
                 key: apiKey,
                 secret: apiSecret,
                 market: 'v5',
-                testnet: true,
+                testnet: !!Number(testMode),
             },
             logger,
         );
