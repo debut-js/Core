@@ -4,12 +4,13 @@ import { SingleBar, Presets } from 'cli-progress';
 import { DebutError, ErrorEnvironment } from '../../modules/error';
 import { requestAlpaca } from './history-providers/alpaca';
 import { createRequestBinance } from './history-providers/binance';
+import { createRequestBybit } from './history-providers/bybit';
 import { requestTinkoff } from './history-providers/tinkoff';
 
 const DAY = 86400000;
 export type RequestFn = (from: number, to: number, ticker: string, interval: TimeFrame) => Promise<Candle[]>;
 export interface HistoryOptions {
-    broker: 'tinkoff' | 'binance' | 'alpaca';
+    broker: 'tinkoff' | 'binance' | 'alpaca' | 'bybit';
     ticker: string;
     instrumentType: InstrumentType;
     days: number;
@@ -30,6 +31,9 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
             break;
         case 'binance':
             requestFn = createRequestBinance(options.instrumentType);
+            break;
+        case 'bybit':
+            requestFn = createRequestBybit(options.instrumentType);
             break;
         case 'alpaca':
             requestFn = requestAlpaca;
