@@ -94,7 +94,7 @@ export class BybitTransport implements BaseTransport {
     protected info: APIResponseV3WithTime<InstrumentInfoResponseV5<'spot'>> | undefined;
     protected instruments: Map<string, Instrument> = new Map();
 
-    constructor(apiKey: string, apiSecret: string, testMode: number | string = 0) {
+    constructor(apiKey: string, apiSecret: string, testnet: number | string = 0) {
         if (!apiKey || !apiSecret) {
             throw new DebutError(ErrorEnvironment.Transport, 'apiKey or apiSecret are incorrect');
         }
@@ -103,7 +103,7 @@ export class BybitTransport implements BaseTransport {
         this.api = new RestClientV5({
             key: apiKey,
             secret: apiSecret,
-            testnet: !!Number(testMode),
+            testnet: !!Number(testnet),
         });
 
         this.ws = new WebsocketClient(
@@ -111,7 +111,7 @@ export class BybitTransport implements BaseTransport {
                 key: apiKey,
                 secret: apiSecret,
                 market: 'v5',
-                testnet: !!Number(testMode),
+                testnet: !!Number(testnet),
             },
             logger,
         );
