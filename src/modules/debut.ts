@@ -102,6 +102,7 @@ export abstract class Debut implements DebutCore {
     public async start() {
         await this.pluginDriver.asyncReduce(PluginHook.onStart);
         this.instrument = await this.transport.getInstrument(this.opts);
+        console.log(this.instrument);
         const unsubscribe = await this.transport.subscribeToTick(this.opts, this.handler);
 
         this.dispose = async () => {

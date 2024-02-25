@@ -1,7 +1,8 @@
 import { date } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
-import { IBApi, EventName, Contract, BarSizeSetting, SecType } from '@stoqey/ib';
+import { IBApi, EventName, Contract, SecType } from '@stoqey/ib';
 import { DebutError, ErrorEnvironment } from '../../../modules/error';
+import { IBTransport, IB_GATEWAY_PORT, convertIBTimeFrame } from '../../../transports/ib';
 
 function createIBDate(timestamp: number) {
     const date = new Date(timestamp);
@@ -17,11 +18,10 @@ function createIBDate(timestamp: number) {
 }
 
 let client: IBApi = null;
-let historyRequestId = 0;
 
 function getClient() {
     if (!client) {
-        client = new IBApi({ port: 4002 });
+        client = new IBApi({ port: IB_GATEWAY_PORT, clientId: IBTransport.getReqId() });
         client.connect();
     }
 
@@ -44,13 +44,13 @@ export async function requestIB(from: number, to: number, ticker: string, interv
 
     const contract: Contract = {
         symbol: ticker,
-        exchange: 'NASDAQ',
+        primaryExch: IBTransport.exchange,
         secType: SecType.STK,
     };
 
     let timeDelta = undefined;
     const candles: Candle[] = [];
-    const sendReqId = ++historyRequestId;
+    const sendReqId = IBTransport.getReqId();
     const result = new Promise<Candle[]>((resolve, reject) => {
         /**
          * Unsubscribe from history events
@@ -109,25 +109,4 @@ export async function requestIB(from: number, to: number, ticker: string, interv
     getClient().reqHistoricalData(sendReqId, contract, ibEndDate, '86400 S', ibInterval, 'TRADES', 1, 2, false);
 
     return result;
-}
-
-export function convertIBTimeFrame(interval: TimeFrame) {
-    switch (interval) {
-        case '1min':
-            return BarSizeSetting.MINUTES_ONE;
-        case '5min':
-            return BarSizeSetting.MINUTES_FIVE;
-        case '15min':
-            return BarSizeSetting.MINUTES_FIFTEEN;
-        case '30min':
-            return BarSizeSetting.MINUTES_THIRTY;
-        case '1h':
-            return BarSizeSetting.HOURS_ONE;
-        case '4h':
-            return BarSizeSetting.HOURS_FOUR;
-        case 'day':
-            return BarSizeSetting.DAYS_ONE;
-    }
-
-    throw new DebutError(ErrorEnvironment.Transport, 'Unsupported interval');
 }
