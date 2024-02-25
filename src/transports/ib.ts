@@ -34,6 +34,8 @@ export function convertIBTimeFrame(interval: TimeFrame) {
     switch (interval) {
         case '1min':
             return BarSizeSetting.MINUTES_ONE;
+        case '3min':
+            return BarSizeSetting.MINUTES_THREE;
         case '5min':
             return BarSizeSetting.MINUTES_FIVE;
         case '15min':
@@ -42,10 +44,14 @@ export function convertIBTimeFrame(interval: TimeFrame) {
             return BarSizeSetting.MINUTES_THIRTY;
         case '1h':
             return BarSizeSetting.HOURS_ONE;
+        case '2h':
+            return BarSizeSetting.HOURS_TWO;
         case '4h':
             return BarSizeSetting.HOURS_FOUR;
         case 'day':
             return BarSizeSetting.DAYS_ONE;
+        case 'month':
+            return BarSizeSetting.MONTHS_ONE;
     }
 
     throw new DebutError(ErrorEnvironment.Transport, 'Unsupported interval');

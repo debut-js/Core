@@ -18,6 +18,7 @@ function createIBDate(timestamp: number) {
 }
 
 let client: IBApi = null;
+const correctionMaxInterval = date.intervalToMs('day');
 
 function getClient() {
     if (!client) {
@@ -44,11 +45,11 @@ export async function requestIB(from: number, to: number, ticker: string, interv
 
     const contract: Contract = {
         symbol: ticker,
-        primaryExch: IBTransport.exchange,
+        exchange: IBTransport.exchange,
         secType: SecType.STK,
     };
 
-    let timeDelta = undefined;
+    const intervalMs = date.intervalToMs(interval);
     const candles: Candle[] = [];
     const sendReqId = IBTransport.getReqId();
     const result = new Promise<Candle[]>((resolve, reject) => {
@@ -77,19 +78,23 @@ export async function requestIB(from: number, to: number, ticker: string, interv
                 return;
             }
 
+            console.log(new Date(time));
+
+            // Interval more that 30 minutes
+            // Interval less than 1d
+            if (
+                intervalMs > 30 * 60 * 1000 &&
+                intervalMs < correctionMaxInterval &&
+                ~~((time % 86_400_000) % 3_600_000) === 0
+            ) {
+                // XXX: Hacky way to fix half hour part of candles more that 1H
+                // Get minutes for not rounded hour
+                time += 30 * 60 * 1000;
+            }
+
             // Skip out of date range
             if (time < from || time > to) {
                 return;
-            }
-
-            // XXX: Hacky way to fix half hour part of candles more that 1H
-            // Dont need in enterprise core
-            // Get minutes for not rounded hour
-            if (timeDelta === undefined) {
-                timeDelta = ~~((time % 86_400_000) % 3_600_000);
-            } else {
-                // Correct missing time range for 1H+ frames (because start is half an hour)
-                time += timeDelta;
             }
 
             candles.push({ o, h, l, c, v, time });
