@@ -5,11 +5,12 @@ import { DebutError, ErrorEnvironment } from '../../modules/error';
 import { requestAlpaca } from './history-providers/alpaca';
 import { createRequestBinance } from './history-providers/binance';
 import { requestTinkoff } from './history-providers/tinkoff';
+import { disposeIB, requestIB } from './history-providers/ib';
 
 const DAY = 86400000;
 export type RequestFn = (from: number, to: number, ticker: string, interval: TimeFrame) => Promise<Candle[]>;
 export interface HistoryOptions {
-    broker: 'tinkoff' | 'binance' | 'alpaca';
+    broker: 'tinkoff' | 'binance' | 'alpaca' | 'ib';
     ticker: string;
     instrumentType: InstrumentType;
     days: number;
@@ -23,6 +24,7 @@ export interface HistoryOptions {
  */
 export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
     let requestFn: RequestFn;
+    let disposeFn: () => void = () => void 0;
 
     switch (options.broker) {
         case 'tinkoff':
@@ -34,9 +36,16 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
         case 'alpaca':
             requestFn = requestAlpaca;
             break;
+        case 'ib':
+            requestFn = requestIB;
+            disposeFn = disposeIB;
+
+            break;
+        default:
+            throw new DebutError(ErrorEnvironment.History, `Broker ${options.broker} is not supported in debut`);
     }
 
-    return createHistory(options, requestFn);
+    return createHistory(options, requestFn, disposeFn);
 }
 
 /**
@@ -45,7 +54,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
  * Current history day will not be cached, because its not ended yet.
  * History validation is inside. If something is broken you will see error.
  */
-async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
+async function createHistory(options: HistoryOptions, requestFn: RequestFn, disposeFn: () => void) {
     const { ticker, days, interval, gapDays, broker, noProgress = false, instrumentType } = options;
     const reqs = [];
     const now = new Date();
@@ -113,6 +122,9 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     // if (broker === 'binance') {
     //     strictSequenceAssert(interval, result);
     // }
+
+    // Keep memory clean
+    disposeFn();
 
     return result;
 }
