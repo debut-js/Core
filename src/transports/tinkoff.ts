@@ -229,7 +229,7 @@ export class TinkoffTransport implements BaseTransport {
  * See: https://github.com/debut-js/Core/pull/20#discussion_r890240512
  */
 export async function findInstrumentByTicker(api: TinkoffInvestApi, ticker: string) {
-    const classCodes = ['SPBXM', 'TQBR'];
+    const classCodes = ['SPBXM', 'TQBR', 'SPBXM', 'MTQR',  'SPBHKEX', 'SPBKZ', 'SPBEQRU', 'SPBRU', 'TQPI', 'SPBFUT', 'CETS' ];
     for (const classCode of classCodes) {
         try {
             const { instrument } = await api.instruments.getInstrumentBy({
