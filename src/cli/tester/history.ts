@@ -8,7 +8,13 @@ import { requestTinkoff } from './history-providers/tinkoff';
 import { disposeIB, requestIB } from './history-providers/ib';
 
 const DAY = 86400000;
-export type RequestFn = (from: number, to: number, ticker: string, interval: TimeFrame) => Promise<Candle[]>;
+export type RequestFn = (
+    from: number,
+    to: number,
+    ticker: string,
+    interval: TimeFrame,
+    currency?: string,
+) => Promise<Candle[]>;
 export interface HistoryOptions {
     broker: 'tinkoff' | 'binance' | 'alpaca' | 'ib';
     ticker: string;
@@ -17,6 +23,7 @@ export interface HistoryOptions {
     interval: TimeFrame;
     gapDays: number;
     noProgress?: boolean;
+    currency?: string;
 }
 
 /**
@@ -55,7 +62,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
  * History validation is inside. If something is broken you will see error.
  */
 async function createHistory(options: HistoryOptions, requestFn: RequestFn, disposeFn: () => void) {
-    const { ticker, days, interval, gapDays, broker, noProgress = false, instrumentType } = options;
+    const { ticker, days, interval, gapDays, broker, noProgress = false, instrumentType, currency } = options;
     const reqs = [];
     const now = new Date();
     const stamp = gapDays ? roundDay(now.getTime()) : now.getTime();
@@ -84,7 +91,7 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn, disp
                 chunkStart = from;
             }
 
-            reqs.push(createRequest(broker, ticker, interval, from, to, instrumentType, requestFn));
+            reqs.push(createRequest(broker, ticker, interval, from, to, instrumentType, requestFn, currency));
 
             if (reqs.length === 50 || to >= end) {
                 const data = await collectCandles(reqs);
@@ -140,6 +147,7 @@ async function createRequest(
     to: number,
     instrumentType: InstrumentType,
     requestFn: RequestFn,
+    currency: string,
 ) {
     const validFrom = from / 100000;
     const validTo = to / 100000;
@@ -159,7 +167,7 @@ async function createRequest(
     if (historyFile) {
         candles = JSON.parse(historyFile);
     } else {
-        candles = await requestFn(from, to, ticker, interval);
+        candles = await requestFn(from, to, ticker, interval, currency);
 
         if (!date.isSameDay(new Date(), new Date(from))) {
             file.ensureFile(path);

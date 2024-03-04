@@ -37,7 +37,13 @@ export function disposeIB() {
     }
 }
 
-export async function requestIB(from: number, to: number, ticker: string, interval: TimeFrame): Promise<Candle[]> {
+export async function requestIB(
+    from: number,
+    to: number,
+    ticker: string,
+    interval: TimeFrame,
+    currency: string,
+): Promise<Candle[]> {
     // Skip weekend history requests
     if (date.isWeekend(from)) {
         return Promise.resolve([]);
@@ -47,6 +53,7 @@ export async function requestIB(from: number, to: number, ticker: string, interv
         symbol: ticker,
         exchange: IBTransport.exchange,
         secType: SecType.STK,
+        currency,
     };
 
     const intervalMs = date.intervalToMs(interval);
@@ -77,8 +84,6 @@ export async function requestIB(from: number, to: number, ticker: string, interv
                 unsubscribe();
                 return;
             }
-
-            console.log(new Date(time));
 
             // Interval more that 30 minutes
             // Interval less than 1d

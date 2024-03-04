@@ -4,6 +4,7 @@ import {
     DepthHandler,
     ExecutedOrder,
     Instrument,
+    InstrumentType,
     OrderType,
     PendingOrder,
     TickHandler,
@@ -21,15 +22,28 @@ import IBApi, {
     OrderAction,
     OrderType as ibOrderType,
     SecType,
-    TickByTickDataType,
     TimeInForce,
     OrderState,
-    OrderStatus,
-    WhatToShow,
+    Stock,
 } from '@stoqey/ib';
-import { debug, math, orders, promise } from '@debut/plugin-utils';
+import { debug, file, math, promise } from '@debut/plugin-utils';
+import TickType from '@stoqey/ib/dist/api/market/tickType';
 
-export const IB_GATEWAY_PORT = 4002;
+export const IB_GATEWAY_PORT = 8888;
+
+export function convertIBSymbolType(type: InstrumentType) {
+    switch (type) {
+        case 'FUTURES':
+            return SecType.FUT;
+        case 'SPOT':
+            return SecType.STK;
+        case 'MARGIN':
+            return SecType.STK;
+        default:
+            throw new DebutError(ErrorEnvironment.Transport, 'Unknown instrument type');
+    }
+}
+
 export function convertIBTimeFrame(interval: TimeFrame) {
     switch (interval) {
         case '1min':
@@ -73,35 +87,40 @@ export function transformIBCandle(date: number, o: number, h: number, l: number,
 
 let globalReqId = 0;
 
+interface IBInstrument extends Instrument {
+    primaryExch?: string;
+}
+
 export class IBTransport implements BaseTransport {
     public static getReqId() {
         return ++globalReqId;
     }
     // XXX Only nasday supported for beta
-    public static exchange = 'NASDAQ';
+    public static exchange = 'SMART';
+    public static trustedExchanges = ['NYSE', 'NASDAQ'];
 
     protected api: IBApi;
-    private instruments: Map<string, Instrument> = new Map();
+    private instruments: Map<string, IBInstrument> = new Map();
 
-    constructor() {
-        this.api = new IBApi({ port: IB_GATEWAY_PORT, clientId: IBTransport.getReqId() });
-        this.api.connect();
-        this.api.reqIds();
+    constructor(protected accountId: string) {
+        this.api = new IBApi({ port: IB_GATEWAY_PORT });
         this.api.once(EventName.nextValidId, (orderId) => {
             globalReqId = ++orderId;
         });
+        this.api.connect();
+        this.api.reqIds();
     }
 
     public async getInstrument(opts: DebutOptions) {
-        const { ticker } = opts;
+        const { ticker, instrumentType } = opts;
         const instrumentId = this.getInstrumentId(opts);
 
         if (this.instruments.has(instrumentId)) {
             return this.instruments.get(instrumentId);
         }
 
-        const res = await this.getInstrumentData(ticker);
-        const instrument: Instrument = {
+        const res = await this.getInstrumentData(ticker, instrumentType);
+        const instrument: IBInstrument = {
             figi: String(res.conId),
             ticker: res.symbol,
             lot: 1, // lot is 1 always for stocks
@@ -110,6 +129,7 @@ export class IBTransport implements BaseTransport {
             lotPrecision: 1, // support only integer lots format
             type: 'SPOT',
             id: instrumentId,
+            primaryExch: res.primaryExch,
         };
 
         this.instruments.set(instrumentId, instrument);
@@ -118,28 +138,46 @@ export class IBTransport implements BaseTransport {
     }
 
     public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
-        const reqId = IBTransport.getReqId();
+        const contract = this.getContract(opts);
+        const mktDateReqId = IBTransport.getReqId();
+        const realTimeReqId = IBTransport.getReqId();
+        let currentBar = null;
+
         const realtimeBarHandler = (riId: number, t: number, o: number, h: number, l: number, c: number, v: number) => {
-            if (riId !== reqId) {
+            if (riId !== realTimeReqId) {
                 return;
             }
 
+            currentBar = transformIBCandle(t, o, h, l, c, v);
             handler(transformIBCandle(t, o, h, l, c, v));
         };
 
-        try {
-            const contract = await this.getContract(opts);
+        const tickPriceHandler = (reqId: number, field: TickType, value: number) => {
+            if (mktDateReqId !== reqId || !currentBar) {
+                return;
+            }
 
-            this.api.reqRealTimeBars(reqId, contract, 5, WhatToShow.TRADES, false);
-            this.api.on(EventName.realtimeBar, realtimeBarHandler);
+            if (field === TickType.ASK || field === TickType.LAST || field === TickType.DELAYED_ASK) {
+                currentBar.c = value;
+                handler(currentBar);
+            }
+        };
 
-            return () => {
-                this.api.cancelRealTimeBars(reqId);
-            };
-        } catch (e) {
+        const unsubscribe = () => {
+            this.api.cancelRealTimeBars(realTimeReqId);
+            this.api.cancelMktData(mktDateReqId);
+            this.api.off(EventName.tickPrice, tickPriceHandler);
             this.api.off(EventName.realtimeBar, realtimeBarHandler);
-            this.api.cancelRealTimeBars(reqId);
-        }
+        };
+
+        // this.api.reqMarketDataType(1);
+        this.api.reqMktData(mktDateReqId, contract, '', false, false);
+        this.api.on(EventName.tickPrice, tickPriceHandler);
+
+        this.api.reqRealTimeBars(realTimeReqId, contract, 5, 'ASK', false);
+        this.api.on(EventName.realtimeBar, realtimeBarHandler);
+
+        return unsubscribe;
     }
 
     public async subscribeOrderBook(opts: DebutOptions, handler: DepthHandler): Promise<() => void> {
@@ -160,29 +198,26 @@ export class IBTransport implements BaseTransport {
             return placeSandboxOrder(order, opts);
         }
 
-        const ibOrder = this.createIbOrder(order);
+        const ibOrder = this.createIbOrder(order, reqId);
 
-        return new Promise<ExecutedOrder>(async (resolve) => {
+        return new Promise<ExecutedOrder>(async (resolve, reject) => {
             const openOrderFailureHandler = (error: Error, code: number, rId: number) => {
-                console.log(error);
                 if (rId === reqId) {
-                    this.api.off(EventName.openOrder, openOrderHandler);
-                    throw new DebutError(ErrorEnvironment.Transport, error.message);
+                    // this.api.off(EventName.openOrder, openOrderHandler);
+                    return reject(new DebutError(ErrorEnvironment.Transport, error.message));
                 }
             };
 
             const openOrderHandler = (orderId: Number, contract: Contract, filled: Order, state: OrderState) => {
-                console.log(filled, state, orderId, reqId);
-
-                if (orderId != ibOrder.orderId) {
+                if (orderId != reqId) {
                     return;
                 }
 
                 this.api.off(EventName.openOrder, openOrderHandler);
                 this.api.off(EventName.error, openOrderFailureHandler);
 
-                if (state.status !== OrderStatus.Filled) {
-                    throw new DebutError(ErrorEnvironment.Transport, state.warningText);
+                if (filled.filledQuantity === 0) {
+                    throw new DebutError(ErrorEnvironment.Transport, 'Order not filled, rejected');
                 }
 
                 const executedOrder: ExecutedOrder = {
@@ -191,8 +226,8 @@ export class IBTransport implements BaseTransport {
                     executedLots: filled.totalQuantity,
                     price: filled.triggerPrice,
                     commission: {
-                        currency: state.commissionCurrency,
-                        value: state.commission,
+                        currency: opts.currency,
+                        value: Number(state.commissionCurrency.split('E')[0]),
                     },
                     orderId: `${ibOrder.orderId}`,
                 };
@@ -201,12 +236,9 @@ export class IBTransport implements BaseTransport {
             };
 
             try {
-                const contract = await this.getContract(opts);
+                const contract = this.getContract(opts);
                 this.api.placeOrder(reqId, contract, ibOrder);
                 this.api.on(EventName.openOrder, openOrderHandler);
-                this.api.on(EventName.orderBound, (reqId, ...args) => {
-                    console.log(...args);
-                });
                 this.api.on(EventName.error, openOrderFailureHandler);
 
                 if (order.retries > 0) {
@@ -243,9 +275,10 @@ export class IBTransport implements BaseTransport {
         return `${opts.ticker}:${opts.instrumentType}`;
     }
 
-    private async getInstrumentData(ticker: string): Promise<Contract> {
+    private async getInstrumentData(ticker: string, instrumentType: InstrumentType): Promise<Contract> {
         return new Promise((resolve) => {
             const reqId = IBTransport.getReqId();
+            const securityType = convertIBSymbolType(instrumentType);
             // XXX Only Stock for NASDAQ for beta
             const handler = (incomingReqId: number, contracts: ContractDescription[]) => {
                 if (incomingReqId !== reqId) {
@@ -254,9 +287,9 @@ export class IBTransport implements BaseTransport {
 
                 const target = contracts.find(
                     ({ contract }) =>
-                        contract.secType === SecType.STK &&
+                        contract.secType === securityType &&
                         contract.symbol === ticker &&
-                        contract.primaryExch === IBTransport.exchange,
+                        IBTransport.trustedExchanges.includes(contract.primaryExch),
                 );
 
                 this.api.off(EventName.symbolSamples, handler);
@@ -273,25 +306,31 @@ export class IBTransport implements BaseTransport {
         });
     }
 
-    private async getContract(opts: DebutOptions): Promise<Contract> {
-        const instrument = await this.getInstrument(opts);
-
-        return {
-            conId: Number(instrument.figi),
-            secIdType: SecType.STK,
-            exchange: IBTransport.exchange,
-        };
+    private getContract(opts: DebutOptions): Contract {
+        switch (opts.instrumentType) {
+            case 'SPOT':
+                return new Stock(opts.ticker);
+            default:
+                throw new DebutError(
+                    ErrorEnvironment.Transport,
+                    `${opts.instrumentType} does not supported by IB transport`,
+                );
+        }
     }
 
-    private createIbOrder(pendingOrder: PendingOrder): Order {
+    private createIbOrder(pendingOrder: PendingOrder, orderId: number): Order {
         const action = pendingOrder.type === OrderType.BUY ? OrderAction.BUY : OrderAction.SELL;
+        const openClose = pendingOrder.close ? 'C' : 'O';
 
         return {
-            orderId: IBTransport.getReqId(),
-            action,
+            account: this.accountId,
+            orderType: ibOrderType.MKT,
             totalQuantity: pendingOrder.lots,
-            orderType: ibOrderType.MKT, // XXX MARKET ONLY
             tif: TimeInForce.IOC,
+            openClose,
+            transmit: true,
+            orderId,
+            action,
         };
     }
 }

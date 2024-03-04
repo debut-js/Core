@@ -76,7 +76,7 @@ export class GeneticWrapper {
      */
     async start(schema: GeneticSchema, opts: DebutOptions) {
         const { days, gapDays, wfo, best, ticksFilter, gaContinent, gaType, maxThreads } = this.options;
-        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
+        const { broker = 'tinkoff', ticker, interval, instrumentType, currency } = opts;
 
         this.schema = schema;
         this.schemaKeys = Object.keys(schema);
@@ -92,6 +92,7 @@ export class GeneticWrapper {
             gapDays,
             instrumentType,
             noProgress: true,
+            currency,
         });
 
         if (ticksFilter) {

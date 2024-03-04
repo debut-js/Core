@@ -45,7 +45,7 @@ async function test(opts: DebutOptions, meta: DebutMeta) {
             process.stdout.write('Genetic CLI error: Put config in bot cfgs.ts file');
         }
 
-        const { broker = 'tinkoff', ticker, interval, instrumentType } = opts;
+        const { broker = 'tinkoff', ticker, interval, instrumentType, currency } = opts;
 
         let ticks = await getHistory({
             broker,
@@ -54,6 +54,7 @@ async function test(opts: DebutOptions, meta: DebutMeta) {
             days,
             gapDays: gap,
             instrumentType,
+            currency,
         });
 
         if (meta.ticksFilter) {
