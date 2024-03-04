@@ -26,7 +26,7 @@ import IBApi, {
     OrderState,
     Stock,
 } from '@stoqey/ib';
-import { debug, file, math, promise } from '@debut/plugin-utils';
+import { date, debug, math, promise } from '@debut/plugin-utils';
 import TickType from '@stoqey/ib/dist/api/market/tickType';
 
 export const IB_GATEWAY_PORT = 8888;
@@ -141,7 +141,9 @@ export class IBTransport implements BaseTransport {
         const contract = this.getContract(opts);
         const mktDateReqId = IBTransport.getReqId();
         const realTimeReqId = IBTransport.getReqId();
-        let currentBar = null;
+        const intervalMs = date.intervalToMs(opts.interval);
+
+        let currentBar: Candle = null;
 
         const realtimeBarHandler = (riId: number, t: number, o: number, h: number, l: number, c: number, v: number) => {
             if (riId !== realTimeReqId) {
@@ -149,7 +151,9 @@ export class IBTransport implements BaseTransport {
             }
 
             currentBar = transformIBCandle(t, o, h, l, c, v);
-            handler(transformIBCandle(t, o, h, l, c, v));
+            currentBar.time = ~~(currentBar.time / intervalMs) * intervalMs;
+
+            handler(currentBar);
         };
 
         const tickPriceHandler = (reqId: number, field: TickType, value: number) => {
