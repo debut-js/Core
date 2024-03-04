@@ -295,6 +295,7 @@ export abstract class Debut implements DebutCore {
             interval: this.opts.interval,
             gapDays: 0,
             instrumentType: this.opts.instrumentType,
+            currency: this.opts.currency,
         });
 
         while (ticks.length) {
