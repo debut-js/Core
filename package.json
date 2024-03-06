@@ -36,7 +36,7 @@
         "tinkoff-invest-api": "^5.0.0"
     },
     "devDependencies": {
-        "@debut/types": "^4.1.0",
+        "@debut/types": "^4.1.1",
         "@types/benchmark": "^2.1.1",
         "@types/cli-progress": "^3.11.0",
         "@types/jest": "^28.1.7",
