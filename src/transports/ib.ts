@@ -174,11 +174,11 @@ export class IBTransport implements BaseTransport {
             this.api.off(EventName.realtimeBar, realtimeBarHandler);
         };
 
-        // this.api.reqMarketDataType(1);
+        this.api.reqMarketDataType(1);
         this.api.reqMktData(mktDateReqId, contract, '', false, false);
         this.api.on(EventName.tickPrice, tickPriceHandler);
 
-        this.api.reqRealTimeBars(realTimeReqId, contract, 5, 'ASK', false);
+        this.api.reqRealTimeBars(realTimeReqId, contract, 5, 'ASK', true);
         this.api.on(EventName.realtimeBar, realtimeBarHandler);
 
         return unsubscribe;
