@@ -104,11 +104,19 @@ export class IBTransport implements BaseTransport {
 
     constructor(protected accountId: string) {
         this.api = new IBApi({ port: IB_GATEWAY_PORT });
-        this.api.once(EventName.nextValidId, (orderId) => {
-            globalReqId = ++orderId;
-        });
-        this.api.connect();
-        this.api.reqIds();
+        const connect = async (delay = 0) => {
+            setTimeout(() => {
+                this.api.once(EventName.nextValidId, (orderId) => {
+                    globalReqId = ++orderId;
+                });
+                this.api.connect();
+                this.api.reqIds();
+            }, delay);
+        };
+
+        connect();
+
+        this.api.on(EventName.disconnected, () => connect(1000));
     }
 
     public async getInstrument(opts: DebutOptions) {
