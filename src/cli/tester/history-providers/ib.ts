@@ -1,8 +1,8 @@
 import { date } from '@debut/plugin-utils';
 import { Candle, TimeFrame } from '@debut/types';
-import { IBApi, EventName, Contract, SecType } from '@stoqey/ib';
+import { EventName, Contract, SecType } from '@stoqey/ib';
 import { DebutError, ErrorEnvironment } from '../../../modules/error';
-import { IBTransport, IB_GATEWAY_PORT, convertIBTimeFrame } from '../../../transports/ib';
+import { IBTransport, convertIBTimeFrame, disposeClient, getClient } from '../../../transports/ib';
 
 function createIBDate(timestamp: number) {
     const date = new Date(timestamp);
@@ -17,25 +17,7 @@ function createIBDate(timestamp: number) {
     return `${datePart} ${timePart} UTC`;
 }
 
-let client: IBApi = null;
 const correctionMaxInterval = date.intervalToMs('day');
-
-function getClient() {
-    if (!client) {
-        client = new IBApi({ port: IB_GATEWAY_PORT, clientId: IBTransport.getReqId() });
-        client.connect();
-    }
-
-    return client;
-}
-
-export function disposeIB() {
-    const client = getClient();
-
-    if (client) {
-        client.disconnect();
-    }
-}
 
 export async function requestIB(
     from: number,
@@ -49,6 +31,7 @@ export async function requestIB(
         return Promise.resolve([]);
     }
 
+    const client = getClient();
     const contract: Contract = {
         symbol: ticker,
         exchange: IBTransport.exchange,
@@ -64,7 +47,7 @@ export async function requestIB(
          * Unsubscribe from history events
          */
         function unsubscribe() {
-            getClient().off(EventName.historicalData, historyDataHandler);
+            client.off(EventName.historicalData, historyDataHandler);
         }
 
         /**
@@ -82,6 +65,7 @@ export async function requestIB(
             if (o === -1 && c === -1 && h === -1 && l === -1) {
                 resolve(candles);
                 unsubscribe();
+                disposeClient();
                 return;
             }
 
@@ -105,8 +89,8 @@ export async function requestIB(
             candles.push({ o, h, l, c, v, time });
         }
 
-        getClient().on(EventName.historicalData, historyDataHandler);
-        getClient().once(EventName.error, (error: Error) => {
+        client.on(EventName.historicalData, historyDataHandler);
+        client.once(EventName.error, (error: Error) => {
             reject(error);
             unsubscribe();
             throw new DebutError(ErrorEnvironment.History, error.message);
@@ -116,7 +100,7 @@ export async function requestIB(
     const ibEndDate = createIBDate(to);
     const ibInterval = convertIBTimeFrame(interval);
 
-    getClient().reqHistoricalData(sendReqId, contract, ibEndDate, '86400 S', ibInterval, 'TRADES', 1, 2, false);
+    client.reqHistoricalData(sendReqId, contract, ibEndDate, '86400 S', ibInterval, 'TRADES', 1, 2, false);
 
     return result;
 }

@@ -5,7 +5,7 @@ import { DebutError, ErrorEnvironment } from '../../modules/error';
 import { requestAlpaca } from './history-providers/alpaca';
 import { createRequestBinance } from './history-providers/binance';
 import { requestTinkoff } from './history-providers/tinkoff';
-import { disposeIB, requestIB } from './history-providers/ib';
+import { requestIB } from './history-providers/ib';
 
 const DAY = 86400000;
 export type RequestFn = (
@@ -31,7 +31,6 @@ export interface HistoryOptions {
  */
 export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
     let requestFn: RequestFn;
-    let disposeFn: () => void = () => void 0;
 
     switch (options.broker) {
         case 'tinkoff':
@@ -45,14 +44,13 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
             break;
         case 'ib':
             requestFn = requestIB;
-            disposeFn = disposeIB;
 
             break;
         default:
             throw new DebutError(ErrorEnvironment.History, `Broker ${options.broker} is not supported in debut`);
     }
 
-    return createHistory(options, requestFn, disposeFn);
+    return createHistory(options, requestFn);
 }
 
 /**
@@ -61,7 +59,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
  * Current history day will not be cached, because its not ended yet.
  * History validation is inside. If something is broken you will see error.
  */
-async function createHistory(options: HistoryOptions, requestFn: RequestFn, disposeFn: () => void) {
+async function createHistory(options: HistoryOptions, requestFn: RequestFn) {
     const { ticker, days, interval, gapDays, broker, noProgress = false, instrumentType, currency } = options;
     const reqs = [];
     const now = new Date();
@@ -129,9 +127,6 @@ async function createHistory(options: HistoryOptions, requestFn: RequestFn, disp
     // if (broker === 'binance') {
     //     strictSequenceAssert(interval, result);
     // }
-
-    // Keep memory clean
-    disposeFn();
 
     return result;
 }

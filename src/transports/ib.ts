@@ -86,6 +86,54 @@ export function transformIBCandle(date: number, o: number, h: number, l: number,
 }
 
 let globalReqId = 0;
+let client: IBApi = null;
+
+const connect = async (delay = 0) => {
+    setTimeout(() => {
+        const connectionTimerId = setTimeout(() => {
+            client.disconnect();
+        }, CONNECTION_TIMEOUT);
+        client.once(EventName.nextValidId, (orderId) => {
+            globalReqId = ++orderId;
+        });
+        client.once(EventName.connected, () => {
+            clearTimeout(connectionTimerId);
+        });
+        client.connect(process.pid);
+        client.reqIds();
+    }, delay);
+};
+
+const delayedReconnect = () => connect(1000);
+
+let usages = 0;
+const CONNECTION_TIMEOUT = 10_000;
+
+interface IBInstrument extends Instrument {
+    primaryExch?: string;
+}
+
+export function getClient() {
+    usages++;
+    if (!client) {
+        client = new IBApi({ port: IB_GATEWAY_PORT, clientId: process.pid });
+
+        connect();
+
+        client.on(EventName.disconnected, delayedReconnect);
+    }
+
+    return client;
+}
+
+export const disposeClient = () => {
+    usages--;
+
+    if (usages <= 0) {
+        client.off(EventName.disconnected, delayedReconnect);
+        client.disconnect();
+    }
+};
 
 interface IBInstrument extends Instrument {
     primaryExch?: string;
@@ -103,20 +151,7 @@ export class IBTransport implements BaseTransport {
     private instruments: Map<string, IBInstrument> = new Map();
 
     constructor(protected accountId: string) {
-        this.api = new IBApi({ port: IB_GATEWAY_PORT });
-        const connect = async (delay = 0) => {
-            setTimeout(() => {
-                this.api.once(EventName.nextValidId, (orderId) => {
-                    globalReqId = ++orderId;
-                });
-                this.api.connect();
-                this.api.reqIds();
-            }, delay);
-        };
-
-        connect();
-
-        this.api.on(EventName.disconnected, () => connect(1000));
+        this.api = getClient();
     }
 
     public async getInstrument(opts: DebutOptions) {
