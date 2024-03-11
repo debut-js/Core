@@ -39,6 +39,14 @@ export async function requestIB(
         currency,
     };
 
+    /** Execute history request */
+    function executeRequest() {
+        const ibEndDate = createIBDate(to);
+        const ibInterval = convertIBTimeFrame(interval);
+
+        client.reqHistoricalData(sendReqId, contract, ibEndDate, '86400 S', ibInterval, 'TRADES', 1, 2, false);
+    }
+
     const intervalMs = date.intervalToMs(interval);
     const candles: Candle[] = [];
     const sendReqId = IBTransport.getReqId();
@@ -48,6 +56,17 @@ export async function requestIB(
          */
         function unsubscribe() {
             client.off(EventName.historicalData, historyDataHandler);
+            client.off(EventName.disconnected, historyConnectionHandler);
+        }
+
+        /**
+         * Handle connection state (keep connected)
+         */
+        function historyConnectionHandler() {
+            client.once(EventName.connected, () => {
+                console.log('retry request');
+                executeRequest();
+            });
         }
 
         /**
@@ -89,6 +108,7 @@ export async function requestIB(
             candles.push({ o, h, l, c, v, time });
         }
 
+        client.on(EventName.disconnected, historyConnectionHandler);
         client.on(EventName.historicalData, historyDataHandler);
         client.once(EventName.error, (error: Error) => {
             reject(error);
@@ -97,10 +117,7 @@ export async function requestIB(
         });
     });
 
-    const ibEndDate = createIBDate(to);
-    const ibInterval = convertIBTimeFrame(interval);
-
-    client.reqHistoricalData(sendReqId, contract, ibEndDate, '86400 S', ibInterval, 'TRADES', 1, 2, false);
+    executeRequest();
 
     return result;
 }

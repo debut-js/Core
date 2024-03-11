@@ -129,10 +129,12 @@ export function getClient() {
 export const disposeClient = () => {
     usages--;
 
-    if (usages <= 0) {
-        client.off(EventName.disconnected, delayedReconnect);
-        client.disconnect();
-    }
+    setTimeout(() => {
+        if (usages <= 0) {
+            client.off(EventName.disconnected, delayedReconnect);
+            client.disconnect();
+        }
+    }, 1000);
 };
 
 interface IBInstrument extends Instrument {
