@@ -26,8 +26,18 @@ export function convertTimeFrame(timeframe: TimeFrame) {
     switch (timeframe) {
         case '1min':
             return '1Min';
+        case '5min':
+            return '5Min';
+        case '15min':
+            return '15Min';
+        case '30min':
+            return '30Min';
+        case '15min':
+            return '15Min';
         case '1h':
             return '1Hour';
+        case '4h':
+            return '4Hour';
         case 'day':
             return '1Day';
     }
