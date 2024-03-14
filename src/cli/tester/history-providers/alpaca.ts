@@ -23,27 +23,6 @@ export async function requestAlpaca(from: number, to: number, ticker: string, in
         return Promise.resolve([]);
     }
 
-    // Alpaca Premium zone
-    const fifteenMin = 900100; // 15 min + 100 ms
-    const now = Date.now();
-    const separateRequest = now - fifteenMin < to;
-    let premiumBars = [];
-
-    if (separateRequest) {
-        to -= fifteenMin;
-
-        try {
-            const response = await getClient().getBars({
-                symbol: ticker,
-                start: new Date(to - fifteenMin + 60_000),
-                end: new Date(to + fifteenMin),
-                timeframe: convertTimeFrame(interval),
-            });
-
-            premiumBars = response.bars;
-        } catch (e) {}
-    }
-
     const response = await getClient().getBars({
         symbol: ticker,
         start: new Date(from),
@@ -51,5 +30,5 @@ export async function requestAlpaca(from: number, to: number, ticker: string, in
         timeframe: convertTimeFrame(interval),
     });
 
-    return [...response.bars, ...premiumBars].map(transformAlpacaCandle);
+    return [...response.bars].map(transformAlpacaCandle);
 }
