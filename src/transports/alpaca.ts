@@ -1,7 +1,8 @@
-import { date, debug, math, promise } from '@debut/plugin-utils';
+import { date, debug, math, orders, promise } from '@debut/plugin-utils';
 import {
     BaseTransport,
     Candle,
+    DebutOptions,
     DepthHandler,
     ExecutedOrder,
     Instrument,
@@ -10,9 +11,8 @@ import {
     TickHandler,
     TimeFrame,
 } from '@debut/types';
-import { Bar, AlpacaClient, AlpacaStream } from '@master-chief/alpaca';
+import { Bar, AlpacaClient, AlpacaStream, Order as AlpacaOrder } from '@master-chief/alpaca';
 import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
-import { DebutOptions } from '@debut/types';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
 import { Transaction } from './utils/transaction';
@@ -53,7 +53,7 @@ export function isNotSupportedTimeframe(timeframe: TimeFrame) {
     }
 }
 
-const goodStatus = ['new', 'accepted'];
+const goodStatus = ['new', 'pending_new', 'accepted', 'partially_filled', 'filled'];
 
 export function transformAlpacaCandle(bar: Bar | RawBar): Candle {
     const rawBar = 'raw' in bar ? bar.raw() : bar;
@@ -73,6 +73,10 @@ export class AlpacaTransport implements BaseTransport {
     protected api: AlpacaClient;
     protected stream: AlpacaStream;
     private instruments: Map<string, Instrument> = new Map();
+    private setAuthenticated: (value: unknown) => void;
+    private authentificated = new Promise((resolve) => {
+        this.setAuthenticated = resolve;
+    });
 
     constructor(key: string, secret: string) {
         if (!key || !secret) {
@@ -88,24 +92,28 @@ export class AlpacaTransport implements BaseTransport {
 
         this.stream.once('authenticated', () => {
             this.stream.on('error', (error) => console.warn(error));
+            this.setAuthenticated(true);
         });
     }
 
     public async getInstrument(opts: DebutOptions) {
         const { ticker } = opts;
         const instrumentId = this.getInstrumentId(opts);
+
         if (this.instruments.has(instrumentId)) {
             return this.instruments.get(instrumentId);
         }
 
         const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
+        const minQuantity = 0.001;
+        const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
             figi: res.id,
             ticker: res.symbol,
-            lot: 1, // lot is 1 always
-            minNotional: 0, // does not provided from api
-            minQuantity: 0, // does not provided from api
-            lotPrecision: 1, // support only integer lots format
+            lot: 1,
+            minNotional: 1,
+            minQuantity,
+            lotPrecision,
             type: 'SPOT',
             id: instrumentId,
         };
@@ -117,6 +125,8 @@ export class AlpacaTransport implements BaseTransport {
 
     public async subscribeToTick(opts: DebutOptions, handler: TickHandler) {
         try {
+            await this.authentificated;
+
             const { interval, ticker } = opts;
             const intervalTime = date.intervalToMs(interval);
             let startTime: number = ~~(Date.now() / intervalTime) * intervalTime;
@@ -189,16 +199,50 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         try {
-            const res = await this.api.placeOrder({
-                symbol: ticker,
-                side: type === OrderType.BUY ? 'buy' : 'sell',
-                type: 'market',
-                qty: lots,
-                time_in_force: 'fok',
-            });
+            let res: AlpacaOrder;
+
+            if (order.close) {
+                res = await this.api.closePosition({ qty: order.lots, symbol: ticker });
+            } else {
+                res = await this.api.placeOrder({
+                    symbol: ticker,
+                    side: type === OrderType.BUY ? 'buy' : 'sell',
+                    type: 'market',
+                    qty: lots,
+                    time_in_force: 'day',
+                    client_order_id: order.cid,
+                });
+            }
 
             if (!goodStatus.includes(res.status)) {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
+            }
+
+            let filled = await this.api.getOrder({ order_id: res.id });
+
+            if (!goodStatus.includes(filled.status)) {
+                throw new DebutError(ErrorEnvironment.Transport, res.status);
+            }
+
+            let attempts = 0;
+
+            while (filled.status !== 'filled') {
+                filled = await this.api.getOrder({ order_id: res.id });
+                attempts++;
+
+                if (!goodStatus.includes(filled.status)) {
+                    throw new DebutError(ErrorEnvironment.Transport, res.status);
+                }
+
+                if (attempts > 3) {
+                    await this.api.cancelOrder({ order_id: res.id });
+                    filled = await this.api.getOrder({ order_id: res.id });
+                    break;
+                }
+            }
+
+            if (filled.filled_qty === 0) {
+                throw new DebutError(ErrorEnvironment.Transport, 'Order cannot be executed');
             }
 
             if (order.retries > 0) {
@@ -208,9 +252,10 @@ export class AlpacaTransport implements BaseTransport {
             const executed: ExecutedOrder = {
                 ...order,
                 commission,
-                executedLots: res.filled_qty || order.lots,
+                executedLots: filled.filled_qty || order.lots,
+                lots: filled.filled_qty || order.lots,
                 orderId: `${res.id}`,
-                price: res.filled_avg_price || order.price,
+                price: filled.filled_avg_price || order.price,
             };
 
             return executed;
@@ -235,8 +280,32 @@ export class AlpacaTransport implements BaseTransport {
         }
     }
 
-    public prepareLots(lots: number) {
-        return Math.round(lots) || 1;
+    public prepareLots(lots: number, instrumentId: string) {
+        const instrument = this.instruments.get(instrumentId);
+
+        if (!instrument) {
+            throw new DebutError(ErrorEnvironment.Transport, `Unknown instument id ${instrumentId}`);
+        }
+
+        const isInteger = instrument.lotPrecision === 0;
+        let resultLots = isInteger ? Math.round(lots) : math.toFixed(lots, instrument.lotPrecision);
+        const lotsRedunantValue = isInteger ? 1 : orders.getMinIncrementValue(instrument.minQuantity);
+
+        if (Math.abs(resultLots - lots) > lotsRedunantValue) {
+            const rev = resultLots < lots ? 1 : -1;
+
+            // Issue with rounding
+            // Reduce lots when rounding is more than source amount and incrase when it less than non rounded lots
+            while (Math.abs(resultLots - lots) >= lotsRedunantValue) {
+                resultLots = math.toFixed(resultLots + lotsRedunantValue * rev, instrument.lotPrecision);
+            }
+        }
+
+        if (resultLots === 0) {
+            resultLots = lotsRedunantValue;
+        }
+
+        return resultLots;
     }
 
     private getInstrumentId(opts: DebutOptions) {
