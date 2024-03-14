@@ -134,6 +134,10 @@ export class AlpacaTransport implements BaseTransport {
             let candle: Candle = { o: 0, h: -Infinity, l: Infinity, c: 0, v: 0, time: startTime };
 
             const listener = (update: RawBar | RawQuote) => {
+                if (update.S !== opts.ticker) {
+                    return;
+                }
+
                 if ('v' in update) {
                     candle = transformAlpacaCandle(update);
                     handler({ ...candle });
