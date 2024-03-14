@@ -333,7 +333,7 @@ export abstract class Debut implements DebutCore {
     }
 
     private handler = async (tick: Candle) => {
-        const change = this.marketTick && this.marketTick.time !== tick.time;
+        const change = this.marketTick && this.marketTick.time !== tick.time && this.candles[0];
         // TODO: skip reduce tick undefined, when filter in meta with session plugin, why?
         const skip = this.pluginDriver.skipReduce(PluginHook.onBeforeTick, tick);
 
