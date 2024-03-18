@@ -105,7 +105,7 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
-        const minQuantity = 0.001;
+        const minQuantity = 0.01;
         const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
             figi: res.id,
