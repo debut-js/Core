@@ -103,17 +103,16 @@ export class AlpacaTransport implements BaseTransport {
     }
 
     public async getInstrument(opts: DebutOptions) {
-        const { ticker } = opts;
+        const { ticker, instrumentType } = opts;
         const instrumentId = this.getInstrumentId(opts);
 
         if (this.instruments.has(instrumentId)) {
             return this.instruments.get(instrumentId);
         }
 
-        await this.authentificated;
-
-        const res = await this.api.getAsset(ticker);
-        const minQuantity = 0.01;
+        const type = instrumentType === 'CRYPTO' ? 'CRYPTO' : 'SPOT';
+        const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
+        const minQuantity = type === 'CRYPTO' ? 0.000001 : 0.01;
         const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
             figi: res.id,
@@ -122,8 +121,8 @@ export class AlpacaTransport implements BaseTransport {
             minNotional: 1,
             minQuantity,
             lotPrecision,
-            type: 'SPOT',
             id: instrumentId,
+            type,
         };
 
         this.instruments.set(instrumentId, instrument);
