@@ -11,11 +11,10 @@ import {
     TickHandler,
     TimeFrame,
 } from '@debut/types';
-import { Bar, AlpacaClient, AlpacaStream, Order as AlpacaOrder } from '@master-chief/alpaca';
-import { RawBar, RawQuote } from '@master-chief/alpaca/@types/entities';
+import Alpaca from '@alpacahq/alpaca-trade-api';
+import { AlpacaBar, AlpacaQuote } from '@alpacahq/alpaca-trade-api/dist/resources/datav2/entityv2';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
-import { Transaction } from './utils/transaction';
 
 export type AlpacaTransportArgs = {
     atoken: string;
@@ -55,23 +54,21 @@ export function isNotSupportedTimeframe(timeframe: TimeFrame) {
 
 const goodStatus = ['new', 'pending_new', 'accepted', 'partially_filled', 'filled'];
 
-export function transformAlpacaCandle(bar: Bar | RawBar): Candle {
-    const rawBar = 'raw' in bar ? bar.raw() : bar;
-    const time = Date.parse(rawBar.t);
+export function transformAlpacaCandle(bar: AlpacaBar): Candle {
+    const time = Date.parse(bar.Timestamp);
 
     return {
-        o: rawBar.o,
-        h: rawBar.h,
-        l: rawBar.l,
-        c: rawBar.c,
-        v: rawBar.v,
+        o: bar.OpenPrice,
+        h: bar.HighPrice,
+        l: bar.LowPrice,
+        c: bar.ClosePrice,
+        v: bar.Volume,
         time,
     };
 }
 
 export class AlpacaTransport implements BaseTransport {
-    protected api: AlpacaClient;
-    protected stream: AlpacaStream;
+    protected api: Alpaca;
     private instruments: Map<string, Instrument> = new Map();
     private setAuthenticated: (value: unknown) => void;
     private authentificated = new Promise((resolve) => {
@@ -83,15 +80,24 @@ export class AlpacaTransport implements BaseTransport {
             throw new DebutError(ErrorEnvironment.Transport, 'key or secret are incorrect');
         }
 
-        this.api = new AlpacaClient({ credentials: { key, secret } });
-        this.stream = new AlpacaStream({
-            credentials: { key, secret },
-            type: 'market_data', // or "account"
-            source: 'iex', // or "sip" depending on your subscription
+        this.api = new Alpaca({
+            keyId: key,
+            secretKey: secret,
+            feed: 'iex', // or "sip" depending on your subscription
+            paper: true, // for tests
         });
 
-        this.stream.once('authenticated', () => {
-            this.stream.on('error', (error) => console.warn(error));
+        this.api.data_stream_v2.connect();
+        this.api.data_stream_v2.onConnect(() => {
+            this.api.data_stream_v2.onError((error) => {
+                // console.warn('stocks', error);
+
+                // Delayed reconnect
+                setTimeout(() => {
+                    this.api.data_stream_v2.connect();
+                }, 1_000);
+            });
+            this.api.crypto_stream_v1beta3.onError((error) => console.warn('crypto', error));
             this.setAuthenticated(true);
         });
     }
@@ -104,7 +110,9 @@ export class AlpacaTransport implements BaseTransport {
             return this.instruments.get(instrumentId);
         }
 
-        const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
+        await this.authentificated;
+
+        const res = await this.api.getAsset(ticker);
         const minQuantity = 0.01;
         const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
@@ -133,31 +141,33 @@ export class AlpacaTransport implements BaseTransport {
             let endTime: number = startTime + intervalTime;
             let candle: Candle = { o: 0, h: -Infinity, l: Infinity, c: 0, v: 0, time: startTime };
 
-            const listener = (update: RawBar | RawQuote) => {
-                if (update.S !== opts.ticker) {
+            const listener = (update: AlpacaBar | AlpacaQuote) => {
+                if (update.Symbol !== opts.ticker) {
                     return;
                 }
 
-                if ('v' in update) {
+                if ('Volume' in update) {
+                    // When Bar
                     candle = transformAlpacaCandle(update);
                     handler({ ...candle });
                     startTime = candle.time + intervalTime;
                     endTime = startTime + intervalTime;
                 } else {
-                    const time = Date.parse(update.t);
+                    // When quote
+                    const time = Date.parse(update.Timestamp);
 
-                    if (time < endTime && candle.c !== update.bp) {
+                    if (time < endTime && candle.c !== update.BidPrice) {
                         if (!candle.o) {
-                            candle.o = update.bp;
+                            candle.o = update.BidPrice;
                         }
 
                         candle = {
                             ...candle,
                             time: startTime,
-                            h: Math.max(candle.h, update.bp),
-                            l: Math.min(candle.l, update.bp),
-                            c: update.bp,
-                            v: 0,
+                            h: Math.max(candle.h, update.BidPrice),
+                            l: Math.min(candle.l, update.BidPrice),
+                            c: update.BidPrice,
+                            v: candle.v + update.BidSize + update.AskSize,
                         };
 
                         handler({ ...candle });
@@ -165,17 +175,18 @@ export class AlpacaTransport implements BaseTransport {
                 }
             };
 
-            this.stream.subscribe('bars', [ticker]);
-            this.stream.subscribe('quotes', [ticker]);
-            this.stream.addListener('bar', listener);
-            this.stream.addListener('quote', listener);
+            this.api.data_stream_v2.subscribeForBars([ticker]);
+            this.api.data_stream_v2.subscribeForQuotes([ticker]);
+
+            this.api.data_stream_v2.onStockBar(listener);
+            this.api.data_stream_v2.onStockQuote(listener);
 
             return () => {
                 this.instruments.delete(this.getInstrumentId(opts));
-                this.stream.unsubscribe('bars', [ticker]);
-                this.stream.unsubscribe('quotes', [ticker]);
-                this.stream.removeListener('bar', listener);
-                this.stream.removeListener('quote', listener);
+                this.api.data_stream_v2.unsubscribeFromBars([ticker]);
+                this.api.data_stream_v2.unsubscribeFromQuotes([ticker]);
+                this.api.data_stream_v2.removeListener('bar', listener);
+                this.api.data_stream_v2.removeListener('quote', listener);
             };
         } catch (e) {
             debug.logDebug(e);
@@ -203,18 +214,19 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         try {
-            let res: AlpacaOrder;
+            let res: Record<string, any>;
 
             if (order.close) {
-                res = await this.api.closePosition({ qty: order.lots, symbol: ticker });
+                // @ts-expect-error
+                res = await this.api.closePosition(ticker, { qty: order.lots });
             } else {
-                res = await this.api.placeOrder({
+                res = await this.api.createOrder({
                     symbol: ticker,
                     side: type === OrderType.BUY ? 'buy' : 'sell',
                     type: 'market',
                     qty: lots,
                     time_in_force: 'day',
-                    client_order_id: order.cid,
+                    order_id: order.cid,
                 });
             }
 
@@ -222,7 +234,7 @@ export class AlpacaTransport implements BaseTransport {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
             }
 
-            let filled = await this.api.getOrder({ order_id: res.id });
+            let filled = await this.api.getOrder(res.id);
 
             if (!goodStatus.includes(filled.status)) {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
@@ -231,7 +243,7 @@ export class AlpacaTransport implements BaseTransport {
             let attempts = 0;
 
             while (filled.status !== 'filled') {
-                filled = await this.api.getOrder({ order_id: res.id });
+                filled = await this.api.getOrder(res.id);
                 attempts++;
 
                 if (!goodStatus.includes(filled.status)) {
@@ -239,13 +251,13 @@ export class AlpacaTransport implements BaseTransport {
                 }
 
                 if (attempts > 3) {
-                    await this.api.cancelOrder({ order_id: res.id });
-                    filled = await this.api.getOrder({ order_id: res.id });
+                    await this.api.cancelOrder(res.id);
+                    filled = await this.api.getOrder(res.id);
                     break;
                 }
             }
 
-            if (filled.filled_qty === 0) {
+            if (Number(filled.filled_qty) === 0) {
                 throw new DebutError(ErrorEnvironment.Transport, 'Order cannot be executed');
             }
 
