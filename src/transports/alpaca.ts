@@ -219,7 +219,7 @@ export class AlpacaTransport implements BaseTransport {
                 type: 'market',
                 qty: lots,
                 time_in_force: 'day',
-                order_id: order.cid,
+                client_order_id: order.cid,
             });
 
             if (!goodStatus.includes(res.status)) {
