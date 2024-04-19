@@ -111,7 +111,7 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         const type = instrumentType === 'CRYPTO' ? 'CRYPTO' : 'SPOT';
-        const res = await this.api.getAsset({ asset_id_or_symbol: ticker });
+        const res = await this.api.getAsset(ticker);
         const minQuantity = type === 'CRYPTO' ? 0.000001 : 0.01;
         const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
@@ -228,6 +228,8 @@ export class AlpacaTransport implements BaseTransport {
                     order_id: order.cid,
                 });
             }
+
+            console.log(res);
 
             if (!goodStatus.includes(res.status)) {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
