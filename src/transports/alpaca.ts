@@ -229,8 +229,6 @@ export class AlpacaTransport implements BaseTransport {
                 });
             }
 
-            console.log(res);
-
             if (!goodStatus.includes(res.status)) {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
             }
