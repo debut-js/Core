@@ -213,21 +213,14 @@ export class AlpacaTransport implements BaseTransport {
         }
 
         try {
-            let res: Record<string, any>;
-
-            if (order.close) {
-                // @ts-expect-error
-                res = await this.api.closePosition(ticker, { qty: order.lots });
-            } else {
-                res = await this.api.createOrder({
-                    symbol: ticker,
-                    side: type === OrderType.BUY ? 'buy' : 'sell',
-                    type: 'market',
-                    qty: lots,
-                    time_in_force: 'day',
-                    order_id: order.cid,
-                });
-            }
+            let res: Record<string, any> = await this.api.createOrder({
+                symbol: ticker,
+                side: type === OrderType.BUY ? 'buy' : 'sell',
+                type: 'market',
+                qty: lots,
+                time_in_force: 'day',
+                order_id: order.cid,
+            });
 
             if (!goodStatus.includes(res.status)) {
                 throw new DebutError(ErrorEnvironment.Transport, res.status);
