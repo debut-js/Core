@@ -144,18 +144,16 @@ export class AlpacaTransport implements BaseTransport {
         const type = instrumentType === 'CRYPTO' ? 'CRYPTO' : 'SPOT';
         const res = await this.api.getAsset(ticker);
         const isCrypto = type === 'CRYPTO';
-        const minQuantity = isCrypto ? res.min_order_size : 0.01;
-        const lotPrecision = isCrypto
-            ? math.getPrecision(res.min_trade_increment || minQuantity)
-            : math.getPrecision(minQuantity);
+        const minQuantity = isCrypto ? Number(res.min_order_size) : 0.01;
+        const lotPrecision = math.getPrecision(minQuantity);
         const instrument: Instrument = {
+            id: instrumentId,
             figi: res.id,
             ticker: res.symbol,
             lot: 1,
             minNotional: 1,
             minQuantity,
             lotPrecision,
-            id: instrumentId,
             type,
         };
 
@@ -248,17 +246,16 @@ export class AlpacaTransport implements BaseTransport {
         const { type, lots, sandbox, learning } = order;
         const { currency, fee } = opts;
         const instrument = await this.getInstrument(opts);
+        const isCrypto = instrument.type === 'CRYPTO';
         const feeAmount = order.price * order.lots * (fee / 100);
-        const commission = { value: feeAmount, currency: 'USD' };
         const { id, ticker } = instrument;
+        const commission = { value: feeAmount, currency: isCrypto ? ticker : currency };
 
         order.retries = order.retries || 0;
 
         if (sandbox || learning) {
             return placeSandboxOrder(order, opts);
         }
-
-        const isCrypto = instrument.type === 'CRYPTO';
 
         try {
             let res: Record<string, any> = await this.api.createOrder({
@@ -313,6 +310,12 @@ export class AlpacaTransport implements BaseTransport {
                 orderId: `${res.id}`,
                 price: filled.filled_avg_price || order.price,
             };
+
+            // Fix order position sizes
+            if (isCrypto) {
+                const realQty = (executed.executedLots = executed.executedLots - executed.commission.value);
+                executed.lots = this.prepareLots(realQty, id);
+            }
 
             return executed;
         } catch (e) {
