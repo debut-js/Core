@@ -228,11 +228,12 @@ export class AlpacaTransport implements BaseTransport {
 
             const stream = isCrypto ? this.api.crypto_stream_v1beta3 : this.api.data_stream_v2;
             const barsCallbackName = isCrypto ? 'onCryptoBar' : 'onStockBar';
+            const quotesCallbackName = isCrypto ? 'onCryptoQuote' : 'onStockQuote';
             stream.subscribeForBars([ticker]);
             stream.subscribeForQuotes([ticker]);
 
             stream[barsCallbackName](listener);
-            stream[barsCallbackName](listener);
+            stream[quotesCallbackName](listener);
 
             return () => {
                 this.instruments.delete(this.getInstrumentId(opts));
