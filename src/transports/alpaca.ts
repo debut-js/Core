@@ -243,13 +243,11 @@ export class AlpacaTransport implements BaseTransport {
     }
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
-        const { type, lots, sandbox, learning } = order;
+        const { cid, type, lots, sandbox, learning } = order;
         const { currency, fee } = opts;
         const instrument = await this.getInstrument(opts);
         const isCrypto = instrument.type === 'CRYPTO';
-        const feeAmount = order.price * order.lots * (fee / 100);
         const { id, ticker } = instrument;
-        const commission = { value: feeAmount, currency: isCrypto ? ticker : currency };
 
         order.retries = order.retries || 0;
 
@@ -264,7 +262,7 @@ export class AlpacaTransport implements BaseTransport {
                 type: 'market',
                 qty: lots,
                 time_in_force: isCrypto ? 'gtc' : 'day',
-                client_order_id: order.cid,
+                client_order_id: cid,
             });
 
             if (!goodStatus.includes(res.status)) {
@@ -302,19 +300,25 @@ export class AlpacaTransport implements BaseTransport {
                 debug.logDebug(' retry success');
             }
 
+            // For crypto comission in tokens, for stocks in usd
+            const price = filled.filled_avg_price || order.price;
+            const filledLots = filled.filled_qty || order.lots;
+            const feeValue = fee / 100;
+            const feeAmount = isCrypto ? lots * feeValue : price * order.lots * feeValue;
+            const commission = { value: feeAmount, currency: isCrypto ? ticker : currency };
             const executed: ExecutedOrder = {
                 ...order,
                 commission,
-                executedLots: filled.filled_qty || order.lots,
-                lots: filled.filled_qty || order.lots,
+                executedLots: filledLots,
+                lots: filledLots,
                 orderId: `${res.id}`,
                 price: filled.filled_avg_price || order.price,
             };
 
             // Fix order position sizes
             if (isCrypto) {
-                const realQty = (executed.executedLots = executed.executedLots - executed.commission.value);
-                executed.lots = this.prepareLots(realQty, id);
+                const realQty = executed.executedLots - executed.commission.value;
+                executed.lots = executed.executedLots = this.prepareLots(realQty, id);
             }
 
             return executed;
