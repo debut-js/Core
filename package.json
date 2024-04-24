@@ -1,6 +1,6 @@
 {
     "name": "@debut/community-core",
-    "version": "5.0.4",
+    "version": "5.0.5",
     "description": "Javascript trading framework, with backtesting and strategy optimisations",
     "exports": "./lib/index.js",
     "types": "lib/index.d.ts",
