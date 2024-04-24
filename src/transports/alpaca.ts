@@ -63,7 +63,7 @@ export function isNotSupportedTimeframe(timeframe: TimeFrame) {
 
 const goodStatus = ['new', 'pending_new', 'accepted', 'partially_filled', 'filled'];
 
-export function transformAlpacaCandle(bar: AlpacaBar | CryptoBar): Candle {
+export function transformAlpacaCandle(bar: AlpacaBar | CryptoBar | AlpacaQuote | CryptoQuote): Candle {
     const time = Date.parse(bar.Timestamp);
 
     if ('Open' in bar) {
@@ -73,6 +73,17 @@ export function transformAlpacaCandle(bar: AlpacaBar | CryptoBar): Candle {
             l: bar.Low,
             c: bar.Close,
             v: bar.Volume,
+            time,
+        };
+    }
+
+    if ('BidPrice' in bar) {
+        return {
+            o: bar.BidPrice,
+            h: bar.BidPrice,
+            l: bar.BidPrice,
+            c: bar.BidPrice,
+            v: 0,
             time,
         };
     }
