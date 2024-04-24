@@ -41,7 +41,7 @@ async function test(opts: DebutOptions, meta: DebutMeta) {
             ohlc,
             broker: opts.broker,
             ticker: opts.ticker,
-            type: opts.instrumentType,
+            type: opts.instrumentType as InstrumentType,
         });
         const bot = await meta.create(transport, opts, WorkingEnv.tester);
         // const logger = new TesterLogger(transport);

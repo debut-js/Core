@@ -15,9 +15,9 @@ import { placeSandboxOrder } from '../../transports/utils/utils';
 
 type TesterTransportOptions = {
     ticker: string;
+    type?: InstrumentType;
     ohlc?: boolean;
     broker?: string;
-    type: InstrumentType;
 };
 
 export class TesterTransport implements BaseTransport {
