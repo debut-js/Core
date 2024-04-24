@@ -2,7 +2,7 @@ import { date, file, promise } from '@debut/plugin-utils';
 import { Candle, InstrumentType, TimeFrame } from '@debut/types';
 import { SingleBar, Presets } from 'cli-progress';
 import { DebutError, ErrorEnvironment } from '../../modules/error';
-import { requestAlpaca } from './history-providers/alpaca';
+import { createRequestAlpaca } from './history-providers/alpaca';
 import { createRequestBinance } from './history-providers/binance';
 import { requestTinkoff } from './history-providers/tinkoff';
 import { requestIB } from './history-providers/ib';
@@ -40,7 +40,7 @@ export async function getHistory(options: HistoryOptions): Promise<Candle[]> {
             requestFn = createRequestBinance(options.instrumentType);
             break;
         case 'alpaca':
-            requestFn = requestAlpaca;
+            requestFn = createRequestAlpaca(options.instrumentType);
             break;
         case 'ib':
             requestFn = requestIB;

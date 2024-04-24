@@ -12,7 +12,12 @@ import {
     TimeFrame,
 } from '@debut/types';
 import Alpaca from '@alpacahq/alpaca-trade-api';
-import { AlpacaBar, AlpacaQuote } from '@alpacahq/alpaca-trade-api/dist/resources/datav2/entityv2';
+import {
+    AlpacaBar,
+    AlpacaQuote,
+    CryptoBar,
+    CryptoQuote,
+} from '@alpacahq/alpaca-trade-api/dist/resources/datav2/entityv2';
 import { DebutError, ErrorEnvironment } from '../modules/error';
 import { placeSandboxOrder } from './utils/utils';
 
@@ -20,6 +25,10 @@ export type AlpacaTransportArgs = {
     atoken: string;
     asecret: string;
 };
+
+export function convertCryptoTicker(ticker: string, currency: string) {
+    return ticker.replace(new RegExp(`${currency}$`), `/${currency}`);
+}
 
 export function convertTimeFrame(timeframe: TimeFrame) {
     switch (timeframe) {
@@ -54,8 +63,19 @@ export function isNotSupportedTimeframe(timeframe: TimeFrame) {
 
 const goodStatus = ['new', 'pending_new', 'accepted', 'partially_filled', 'filled'];
 
-export function transformAlpacaCandle(bar: AlpacaBar): Candle {
+export function transformAlpacaCandle(bar: AlpacaBar | CryptoBar): Candle {
     const time = Date.parse(bar.Timestamp);
+
+    if ('Open' in bar) {
+        return {
+            o: bar.Open,
+            h: bar.High,
+            l: bar.Low,
+            c: bar.Close,
+            v: bar.Volume,
+            time,
+        };
+    }
 
     return {
         o: bar.OpenPrice,
@@ -69,10 +89,17 @@ export function transformAlpacaCandle(bar: AlpacaBar): Candle {
 
 export class AlpacaTransport implements BaseTransport {
     protected api: Alpaca;
+    private connectedStreams = 0;
     private instruments: Map<string, Instrument> = new Map();
-    private setAuthenticated: (value: unknown) => void;
+    private streamConnected: () => void;
     private authentificated = new Promise((resolve) => {
-        this.setAuthenticated = resolve;
+        this.streamConnected = () => {
+            this.connectedStreams++;
+
+            if (this.connectedStreams === 2) {
+                resolve(true);
+            }
+        };
     });
 
     constructor(key: string, secret: string) {
@@ -88,17 +115,21 @@ export class AlpacaTransport implements BaseTransport {
         });
 
         this.api.data_stream_v2.connect();
-        this.api.data_stream_v2.onConnect(() => {
-            this.api.data_stream_v2.onError((error) => {
-                // console.warn('stocks', error);
-
-                // Delayed reconnect
-                setTimeout(() => {
-                    this.api.data_stream_v2.connect();
-                }, 1_000);
+        this.api.data_stream_v2.once('connected', () => {
+            this.api.data_stream_v2.onDisconnect(() => {
+                // Delayed reconnect for stocks stream
+                setTimeout(() => this.api.data_stream_v2.connect(), 1_000);
             });
-            this.api.crypto_stream_v1beta3.onError((error) => console.warn('crypto', error));
-            this.setAuthenticated(true);
+            this.streamConnected();
+        });
+
+        this.api.crypto_stream_v1beta3.connect();
+        this.api.crypto_stream_v1beta3.once('connected', () => {
+            this.api.crypto_stream_v1beta3.onDisconnect(() => {
+                // Delayed reconnect for crypto stream
+                setTimeout(() => this.api.crypto_stream_v1beta3.connect(), 1_000);
+            });
+            this.streamConnected();
         });
     }
 
@@ -112,8 +143,11 @@ export class AlpacaTransport implements BaseTransport {
 
         const type = instrumentType === 'CRYPTO' ? 'CRYPTO' : 'SPOT';
         const res = await this.api.getAsset(ticker);
-        const minQuantity = type === 'CRYPTO' ? 0.000001 : 0.01;
-        const lotPrecision = math.getPrecision(minQuantity);
+        const isCrypto = type === 'CRYPTO';
+        const minQuantity = isCrypto ? res.min_order_size : 0.01;
+        const lotPrecision = isCrypto
+            ? math.getPrecision(res.min_trade_increment || minQuantity)
+            : math.getPrecision(minQuantity);
         const instrument: Instrument = {
             figi: res.id,
             ticker: res.symbol,
@@ -134,14 +168,23 @@ export class AlpacaTransport implements BaseTransport {
         try {
             await this.authentificated;
 
-            const { interval, ticker } = opts;
+            let { interval, ticker, currency } = opts;
             const intervalTime = date.intervalToMs(interval);
+            const instrument = await this.getInstrument(opts);
+            const isCrypto = instrument.type === 'CRYPTO';
+
             let startTime: number = ~~(Date.now() / intervalTime) * intervalTime;
             let endTime: number = startTime + intervalTime;
             let candle: Candle = { o: 0, h: -Infinity, l: Infinity, c: 0, v: 0, time: startTime };
+            ticker = isCrypto ? convertCryptoTicker(ticker, currency) : ticker;
 
-            const listener = (update: AlpacaBar | AlpacaQuote) => {
-                if (update.Symbol !== opts.ticker) {
+            const listener = (update: AlpacaBar | AlpacaQuote | CryptoBar | CryptoQuote) => {
+                if ('Symbol' in update && update.Symbol !== ticker) {
+                    return;
+                }
+
+                // @ts-expect-error (typings error in library)
+                if ('S' in update && update.S !== ticker) {
                     return;
                 }
 
@@ -174,18 +217,20 @@ export class AlpacaTransport implements BaseTransport {
                 }
             };
 
-            this.api.data_stream_v2.subscribeForBars([ticker]);
-            this.api.data_stream_v2.subscribeForQuotes([ticker]);
+            const stream = isCrypto ? this.api.crypto_stream_v1beta3 : this.api.data_stream_v2;
+            const barsCallbackName = isCrypto ? 'onCryptoBar' : 'onStockBar';
+            stream.subscribeForBars([ticker]);
+            stream.subscribeForQuotes([ticker]);
 
-            this.api.data_stream_v2.onStockBar(listener);
-            this.api.data_stream_v2.onStockQuote(listener);
+            stream[barsCallbackName](listener);
+            stream[barsCallbackName](listener);
 
             return () => {
                 this.instruments.delete(this.getInstrumentId(opts));
-                this.api.data_stream_v2.unsubscribeFromBars([ticker]);
-                this.api.data_stream_v2.unsubscribeFromQuotes([ticker]);
-                this.api.data_stream_v2.removeListener('bar', listener);
-                this.api.data_stream_v2.removeListener('quote', listener);
+                stream.unsubscribeFromBars([ticker]);
+                stream.unsubscribeFromQuotes([ticker]);
+                stream.removeListener('bar', listener);
+                stream.removeListener('quote', listener);
             };
         } catch (e) {
             debug.logDebug(e);
@@ -201,8 +246,9 @@ export class AlpacaTransport implements BaseTransport {
 
     public async placeOrder(order: PendingOrder, opts: DebutOptions): Promise<ExecutedOrder> {
         const { type, lots, sandbox, learning } = order;
+        const { currency, fee } = opts;
         const instrument = await this.getInstrument(opts);
-        const feeAmount = order.price * order.lots * (opts.fee / 100);
+        const feeAmount = order.price * order.lots * (fee / 100);
         const commission = { value: feeAmount, currency: 'USD' };
         const { id, ticker } = instrument;
 
@@ -212,13 +258,15 @@ export class AlpacaTransport implements BaseTransport {
             return placeSandboxOrder(order, opts);
         }
 
+        const isCrypto = instrument.type === 'CRYPTO';
+
         try {
             let res: Record<string, any> = await this.api.createOrder({
                 symbol: ticker,
                 side: type === OrderType.BUY ? 'buy' : 'sell',
                 type: 'market',
                 qty: lots,
-                time_in_force: 'day',
+                time_in_force: isCrypto ? 'gtc' : 'day',
                 client_order_id: order.cid,
             });
 

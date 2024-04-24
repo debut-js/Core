@@ -1,7 +1,12 @@
 import { cli, date } from '@debut/plugin-utils';
-import { Candle, TimeFrame } from '@debut/types';
+import { Candle, InstrumentType, TimeFrame } from '@debut/types';
 import Alpaca from '@alpacahq/alpaca-trade-api';
-import { transformAlpacaCandle, convertTimeFrame, AlpacaTransportArgs } from '../../../transports/alpaca';
+import {
+    transformAlpacaCandle,
+    convertTimeFrame,
+    AlpacaTransportArgs,
+    convertCryptoTicker,
+} from '../../../transports/alpaca';
 
 const tokens = cli.getTokens();
 const { atoken = 'alpacaKey', asecret = 'alpacaSecret' } = cli.getArgs<AlpacaTransportArgs>();
@@ -22,27 +27,56 @@ function getClient() {
     return client;
 }
 
-export async function requestAlpaca(from: number, to: number, ticker: string, interval: TimeFrame): Promise<Candle[]> {
-    // Skip weekend history requests
-    if (date.isWeekend(from)) {
-        return Promise.resolve([]);
-    }
+export function createRequestAlpaca(instrumentType: InstrumentType) {
+    async function requestAlpacaStock(
+        from: number,
+        to: number,
+        ticker: string,
+        interval: TimeFrame,
+    ): Promise<Candle[]> {
+        // Skip weekend history requests
+        if (date.isWeekend(from)) {
+            return Promise.resolve([]);
+        }
 
-    const bars = [];
-    const barsFeed = getClient().getBarsV2(ticker, {
-        start: new Date(from),
-        end: new Date(to),
-        timeframe: convertTimeFrame(interval),
-        feed,
-    });
+        const bars = [];
+        const barsFeed = getClient().getBarsV2(ticker, {
+            start: new Date(from),
+            end: new Date(to),
+            timeframe: convertTimeFrame(interval),
+            feed,
+        });
 
-    try {
         for await (const b of barsFeed) {
             bars.push(transformAlpacaCandle(b));
         }
-    } catch (e) {
-        console.log(e);
+
+        return bars;
     }
 
-    return bars;
+    async function requestAlpacaCrypt(
+        from: number,
+        to: number,
+        ticker: string,
+        interval: TimeFrame,
+        currency: string,
+    ): Promise<Candle[]> {
+        ticker = convertCryptoTicker(ticker, currency);
+
+        const barsFeed = await getClient().getCryptoBars([ticker], {
+            start: new Date(from),
+            end: new Date(to),
+            timeframe: convertTimeFrame(interval),
+        });
+        const bars = barsFeed.get(ticker);
+        const debutBars = [];
+
+        for (const bar of bars) {
+            debutBars.push(transformAlpacaCandle(bar));
+        }
+
+        return debutBars;
+    }
+
+    return instrumentType === 'CRYPTO' ? requestAlpacaCrypt : requestAlpacaStock;
 }
