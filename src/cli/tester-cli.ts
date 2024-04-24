@@ -37,7 +37,12 @@ let schema: cli.BotData | null;
 
 async function test(opts: DebutOptions, meta: DebutMeta) {
     try {
-        const transport = new TesterTransport({ ohlc, broker: opts.broker, ticker: opts.ticker });
+        const transport = new TesterTransport({
+            ohlc,
+            broker: opts.broker,
+            ticker: opts.ticker,
+            type: opts.instrumentType,
+        });
         const bot = await meta.create(transport, opts, WorkingEnv.tester);
         // const logger = new TesterLogger(transport);
 

@@ -29,7 +29,7 @@ export class GeneticWorker {
             if (!this.schema && !this.transport) {
                 this.schema = await cli.getBotData(bot);
                 const cfg = this.schema.configs[ticker];
-                this.transport = new TesterTransport({ ohlc, broker: cfg.broker, ticker });
+                this.transport = new TesterTransport({ ohlc, broker: cfg.broker, ticker, type: cfg.instrumentType });
             }
 
             try {

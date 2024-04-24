@@ -8,6 +8,7 @@ import {
     DebutOptions,
     DepthHandler,
     PendingOrder,
+    InstrumentType,
 } from '@debut/types';
 import { generateOHLC } from './history';
 import { placeSandboxOrder } from '../../transports/utils/utils';
@@ -16,6 +17,7 @@ type TesterTransportOptions = {
     ticker: string;
     ohlc?: boolean;
     broker?: string;
+    type: InstrumentType;
 };
 
 export class TesterTransport implements BaseTransport {
@@ -89,10 +91,11 @@ export class TesterTransport implements BaseTransport {
     }
 
     public prepareLots(lots: number) {
-        switch (this.opts.broker) {
-            case 'binance':
+        switch (true) {
+            case this.opts.broker === 'binance':
+            case this.opts.broker === 'alpaca' && this.opts.type === 'CRYPTO':
                 return math.toFixed(lots, 4);
-            case 'tinkoff':
+            case this.opts.broker === 'tinkoff':
             default:
                 return Math.round(lots) || 1;
         }
