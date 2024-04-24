@@ -317,7 +317,10 @@ export class AlpacaTransport implements BaseTransport {
             const filledLots = filled.filled_qty || order.lots;
             const feeValue = fee / 100;
             const feeAmount = isCrypto ? lots * feeValue : price * order.lots * feeValue;
-            const commission = { value: feeAmount, currency: isCrypto ? ticker : currency };
+            const commission = {
+                value: isCrypto ? feeAmount * price : feeAmount,
+                currency,
+            };
             const executed: ExecutedOrder = {
                 ...order,
                 commission,
