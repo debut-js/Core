@@ -127,19 +127,11 @@ export class AlpacaTransport implements BaseTransport {
 
         this.api.data_stream_v2.connect();
         this.api.data_stream_v2.once('connected', () => {
-            this.api.data_stream_v2.onDisconnect(() => {
-                // Delayed reconnect for stocks stream
-                setTimeout(() => this.api.data_stream_v2.connect(), 1_000);
-            });
             this.streamConnected();
         });
 
         this.api.crypto_stream_v1beta3.connect();
         this.api.crypto_stream_v1beta3.once('connected', () => {
-            this.api.crypto_stream_v1beta3.onDisconnect(() => {
-                // Delayed reconnect for crypto stream
-                setTimeout(() => this.api.crypto_stream_v1beta3.connect(), 1_000);
-            });
             this.streamConnected();
         });
     }
